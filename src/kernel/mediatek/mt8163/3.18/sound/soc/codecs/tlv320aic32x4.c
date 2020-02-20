@@ -53,9 +53,7 @@ struct aic32x4_configs {
 };
 
 static const struct aic32x4_configs biquad_Play_Biscuit[] = {
-	/* ========================
-	=    Playback Filters  =
-	========================*/
+	/* Playback Filters */
 	/* Force DRC (Dynamic Range Compression) off */
 	{AIC32X4_DRCCTRLREG1, 0x0F},
 };
@@ -125,9 +123,7 @@ static const struct soc_enum aic32x4_mfp_mute_enable_enum =
 static u8 dac_soft_stepping = AIC32X4_DAC_DEFAULT_SOFT_STEPPING;
 
 static struct aic32x4_configs biquad_settings_regs[] = {
-	/* ========================
-	=    Playback Filters  =
-	======================== */
+	/* Playback Filters */
 	{AIC32X4_PAGE44 + 12, 0},
 	{AIC32X4_PAGE44 + 13, 0},
 	{AIC32X4_PAGE44 + 14, 0},
@@ -327,7 +323,7 @@ static int aic32x4_apply_mute(struct snd_soc_codec *codec, int mute)
 	u8 unmute_state, prog_gain, ref_gain;
 	int i = 0;
 
-	dev_dbg(codec->dev, "%s+ mute=%d\n", __func__, mute);
+	dev_dbg(codec->dev, "%s:+ mute=%d\n", __func__, mute);
 
 	unmute_state = snd_soc_read(codec, AIC32X4_DACMUTE) & ~AIC32X4_MUTEON;
 	prog_gain = snd_soc_read(codec, AIC32X4_GAIN_APPLIED);
@@ -345,7 +341,8 @@ static int aic32x4_apply_mute(struct snd_soc_codec *codec, int mute)
 	} else {
 		if (aic32x4->channels == 1) {
 			/* For mono, check HP Driver only for one channel
-			 * and unmute one channel too */
+			 * and unmute one channel too
+			 */
 			unmute_state |= AIC32X4_UNMUTE_MONO;
 			ref_gain = DAC_GAIN_MONO_APPLIED;
 		} else {
@@ -355,7 +352,8 @@ static int aic32x4_apply_mute(struct snd_soc_codec *codec, int mute)
 		if (aic32x4->ignore_ramp == false) {
 			/* Before unmuting wait for DAC gain to reach applied
 			 * level. Not doing so will cause a pop. It can take
-			 * upto 2sec. Limit the wait by a counter. */
+			 * upto 2sec. Limit the wait by a counter.
+			 */
 			while (prog_gain < ref_gain && i < 22) {
 				/* wait for applied gain to reduce Pop */
 				prog_gain = snd_soc_read(codec,
@@ -371,8 +369,8 @@ static int aic32x4_apply_mute(struct snd_soc_codec *codec, int mute)
 	/* Store device current status */
 	aic32x4->unmuted = !mute;
 
-	dev_info(codec->dev, "%s- mute=%d prog_gain=%x i=%d\n", __func__, mute,
-		prog_gain, i);
+	dev_info(codec->dev, "%s: Playback_Audio amp_mute=%d codec_unmute=%d prog_gain=%x i=%d\n",
+		__func__, aic32x4->mfp_amp_muted, aic32x4->unmuted, prog_gain, i);
 
 	return 0;
 }
@@ -401,7 +399,8 @@ static int put_right_ch_enab_only(struct snd_kcontrol *kcontrol,
 		aic32x4->channels = 2;
 
 	/* If channel count was updated and DAC is in unmute state,
-	 * apply unmute to correct number of channels */
+	 * apply unmute to correct number of channels
+	 */
 	if (prev_channels != aic32x4->channels && aic32x4->unmuted)
 		aic32x4_apply_mute(codec, 0);
 
@@ -461,7 +460,7 @@ static int get_ignore_ramp(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct aic32x4_priv *aic32x4 = snd_soc_codec_get_drvdata(codec);
 
-	dev_info(codec->dev, "%s ignore_ramp=%d\n", __func__,
+	dev_dbg(codec->dev, "%s ignore_ramp=%d\n", __func__,
 		aic32x4->ignore_ramp);
 
 	ucontrol->value.enumerated.item[0] = aic32x4->ignore_ramp;
@@ -474,10 +473,6 @@ static int set_mfp_mute_enable(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct aic32x4_priv *aic32x4 = snd_soc_codec_get_drvdata(codec);
-
-	dev_dbg(codec->dev, "%s amp_mute=%d current_ch=%d unmute=%d\n",
-		__func__, ucontrol->value.enumerated.item[0], aic32x4->channels,
-		aic32x4->unmuted);
 
 	if (ucontrol->value.enumerated.item[0] >
 		ARRAY_SIZE(control_enable)) {
@@ -496,6 +491,9 @@ static int set_mfp_mute_enable(struct snd_kcontrol *kcontrol,
 		snd_soc_write(codec, AIC32X4_DOUTCTL, MFP2_GPIO_ENABLE);
 		aic32x4->mfp_amp_muted = false;
 	}
+
+	dev_info(codec->dev, "%s: Playback_Audio amp_mute=%d codec_unmute=%d\n",
+		__func__, aic32x4->mfp_amp_muted, aic32x4->unmuted);
 
 	return 0;
 }
@@ -951,9 +949,7 @@ static int aic32x4_hw_params(struct snd_pcm_substream *substream,
 	/* Set the signal processing block (PRB) modes */
 	snd_soc_write(codec, AIC32X4_DACSPB, 0x2);
 
-	/* ####################################################
-	# Program the biquads and DRC
-	#################################################### */
+	/* Program the biquads and DRC */
 	pConfigRegs = biquad_Play_Biscuit;
 	size = ARRAY_SIZE(biquad_Play_Biscuit);
 	for (j = 0; j < size; j++) {
@@ -1384,21 +1380,10 @@ static int aic32x4_i2c_probe(struct i2c_client *i2c,
 			return ret;
 	}
 
-	/* TODO: Enable regulators if needed
-	ret = aic32x4_setup_regulators(&i2c->dev, aic32x4);
-	if (ret) {
-		dev_err(&i2c->dev, "Failed to setup regulators\n");
-		return ret;
-	}
-	*/
-
 	ret = snd_soc_register_codec(&i2c->dev,
 			&soc_codec_dev_aic32x4, &aic32x4_dai, 1);
 	if (ret) {
 		dev_err(&i2c->dev, "Failed to register codec\n");
-		/* TODO: Disable regulators if needed
-		aic32x4_disable_regulators(aic32x4);
-		*/
 		return ret;
 	}
 
@@ -1411,11 +1396,6 @@ static int aic32x4_i2c_probe(struct i2c_client *i2c,
 
 static int aic32x4_i2c_remove(struct i2c_client *client)
 {
-	/*TODO: Disable regulators if needed
-	struct aic32x4_priv *aic32x4 = i2c_get_clientdata(client);
-	aic32x4_disable_regulators(aic32x4);
-	*/
-
 	snd_soc_unregister_codec(&client->dev);
 	return 0;
 }

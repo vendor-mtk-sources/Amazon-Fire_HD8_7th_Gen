@@ -240,6 +240,10 @@ extern VOID rlmCmd(P_GLUE_INFO_T prGlueInfo, UINT_8 *prInBuf, UINT_32 u4InBufLen
 
 #define PRIV_CMD_DTIM_SKIP_COUNT		39
 
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+#define PRIV_CMD_INT_STAT				41
+#endif
+
 /* other string command ID */
 #define PRIV_CMD_OTHER_TDLS				0x00
 #define PRIV_CMD_OTHER_TAR				0x01 /* TX auto rate */

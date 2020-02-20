@@ -53,6 +53,7 @@ enum CHARGER_TYPE {
 
 extern void wake_up_bat(void);
 extern enum CHARGER_TYPE mt_charger_type_detection(void);
+extern bool bat_is_charger_exist(void);
 extern bool upmu_is_chr_det(void);
 extern kal_uint32 upmu_get_rgs_chrdet(void);
 extern void BATTERY_SetUSBState(int usb_state);

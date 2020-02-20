@@ -2333,6 +2333,44 @@ _priv_get_struct(IN struct net_device *prNetDev,
 		else
 			return status;
 	}
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	case PRIV_CMD_INT_STAT:
+	{
+		char buf[256];
+		int pos = 0;
+		int i = 0;
+		P_WAKEUP_STATISTIC *prWakeupSta = NULL;
+
+		prWakeupSta = prGlueInfo->prAdapter->arWakeupStatistic;
+		pos += snprintf(buf, sizeof(buf),
+				"Abnormal Interrupt:%d\n"
+				"Software Interrupt:%d\n"
+				"TX Interrupt:%d\n"
+				"RX data:%d\n"
+				"RX Event:%d\n"
+				"RX mgmt:%d\n"
+				"RX others:%d\n",
+				prWakeupSta[0].u2Count,
+				prWakeupSta[1].u2Count,
+				prWakeupSta[2].u2Count,
+				prWakeupSta[3].u2Count,
+				prWakeupSta[4].u2Count,
+				prWakeupSta[5].u2Count,
+				prWakeupSta[6].u2Count);
+		for (i = 0; i < EVENT_ID_END; i++) {
+			if (prGlueInfo->prAdapter->wake_event_count[i] > 0)
+				pos += snprintf(buf + pos, sizeof(buf),
+						"RX EVENT[0x%0x]:%d\n", i,
+						prGlueInfo->prAdapter
+						->wake_event_count[i]);
+		}
+		if (copy_to_user(prIwReqData->data.pointer,
+			&buf[0], sizeof(buf)))
+			return -EFAULT;
+		else
+			return status;
+	}
+#endif
 	default:
 		DBGLOG(REQ, WARN, "get struct cmd:0x%x\n", u4SubCmd);
 		return -EOPNOTSUPP;

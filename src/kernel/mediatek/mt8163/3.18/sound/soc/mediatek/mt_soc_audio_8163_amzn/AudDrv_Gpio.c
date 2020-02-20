@@ -167,7 +167,7 @@ int AudDrv_GPIO_I2S_Select(int bEnable)
 {
 	int retval = 0;
 
-	pr_debug("%s Enable=%d\n", __func__, bEnable);
+	pr_debug("%s+ Playback_Audio I2S_Enable=%d\n", __func__, bEnable);
 
 	if (bEnable == 1) {
 		if (aud_gpios[GPIO_I2S_MODE1].gpio_prepare) {
@@ -190,14 +190,15 @@ int AudDrv_GPIO_I2S_Select(int bEnable)
 			retval = -1;
 		}
 	}
+
+	pr_info("%s: Playback_Audio I2S_Enable=%d ret=%d\n", __func__, bEnable, retval);
+
 	return retval;
 }
 
 int AudDrv_GPIO_EXTAMP_Select(int bEnable)
 {
 	int retval = 0;
-
-	pr_debug("%s bEnable = %d\n", __func__, bEnable);
 
 	if (bEnable == 1) {
 		if (aud_gpios[GPIO_EXTAMP_HIGH].gpio_prepare) {
@@ -220,6 +221,8 @@ int AudDrv_GPIO_EXTAMP_Select(int bEnable)
 			retval = -1;
 		}
 	}
+	pr_info("%s- Playback_Audio Ext Amp Enable=%d ret=%d\n", __func__, bEnable, retval);
+
 	return retval;
 }
 
@@ -374,8 +377,6 @@ int AudDrv_GPIO_DACMUX_Select(int bEnable)
 {
 	int retval = 0;
 
-	pr_debug("%s bEnable = %d\n", __func__, bEnable);
-
 	if (bEnable == 1) {
 		if (aud_gpios[GPIO_DACMUX_HIGH].gpio_prepare) {
 			retval =
@@ -399,14 +400,13 @@ int AudDrv_GPIO_DACMUX_Select(int bEnable)
 			retval = -1;
 		}
 	}
+    pr_info("%s: Playback_Audio DacMux_bEnable=%d ret=%d\n", __func__, bEnable, retval);
 	return retval;
 }
 
 int AudDrv_GPIO_LineOut_Select(int bEnable)
 {
 	int retval = 0;
-
-	pr_debug("%s bEnable = %d\n", __func__, bEnable);
 
 	if (bEnable == 1) {
 		/* LineOut switch is enabled when set 0*/
@@ -432,6 +432,8 @@ int AudDrv_GPIO_LineOut_Select(int bEnable)
 			retval = -1;
 		}
 	}
+
+	pr_info("%s: Playback_Audio Lineout_Enable=%d ret=%d\n", __func__, bEnable, retval);
 	return retval;
 }
 #endif

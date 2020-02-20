@@ -2648,10 +2648,23 @@ static void wlanUninit(struct net_device *prDev)
 /*----------------------------------------------------------------------------*/
 static int wlanOpen(struct net_device *prDev)
 {
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	P_GLUE_INFO_T prGlueInfo = NULL;
+#endif
 	ASSERT(prDev);
 
 	netif_tx_start_all_queues(prDev);
 
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prDev));
+
+	/* Initialize arWakeupStatistic */
+	kalMemSet(prGlueInfo->prAdapter->arWakeupStatistic, 0,
+		  sizeof(prGlueInfo->prAdapter->arWakeupStatistic));
+	/* Initialize wake_event_count */
+	kalMemSet(prGlueInfo->prAdapter->wake_event_count, 0,
+		  sizeof(prGlueInfo->prAdapter->wake_event_count));
+#endif
 	return 0;		/* success */
 }				/* end of wlanOpen() */
 
@@ -3818,7 +3831,14 @@ static INT_32 wlanProbe(PVOID pvData)
 			/* kalMemCopy(&prGlueInfo->rRegInfo, prRegInfo, sizeof(REG_INFO_T)); */
 
 			prRegInfo->u4PowerMode = CFG_INIT_POWER_SAVE_PROF;
-			prRegInfo->fgEnArpFilter = TRUE;
+
+			if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "biscuit", 7) == 0 ||
+				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "cookie", 6) == 0 ||
+				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) == 0) {
+				prRegInfo->fgEnArpFilter = FALSE;
+			} else {
+				prRegInfo->fgEnArpFilter = TRUE;
+			}
 
 			if (kalFirmwareImageMapping(prGlueInfo, &prFwBuffer, &u4FwSize) == NULL) {
 				i4Status = -EIO;

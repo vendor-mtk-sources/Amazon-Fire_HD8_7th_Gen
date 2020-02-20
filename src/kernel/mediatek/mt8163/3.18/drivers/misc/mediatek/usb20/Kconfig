@@ -10,6 +10,15 @@ config USB_MTK_HDRC
 	  it's being used with, including the USB peripheral role,
 	  or the USB host role, or both.
 
+config USB_AMAZON_DOCK
+	tristate "Amazon Dock Support"
+	depends on USB_MTK_HDRC
+	default n
+	help
+	  Say Y here if you want to support Amazon dock (Zeus),
+	  which is a Amazon special Dock, it's different with
+	  ACA Dock.
+
 config MTK_MUSB_QMU_SUPPORT
 	bool "QMU Transfer mode of MediaTek MUSB"
 	default n

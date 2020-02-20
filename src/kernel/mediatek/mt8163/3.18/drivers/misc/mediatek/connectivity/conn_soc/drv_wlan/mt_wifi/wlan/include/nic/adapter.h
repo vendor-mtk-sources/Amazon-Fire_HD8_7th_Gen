@@ -1379,6 +1379,7 @@ struct _ADAPTER_T {
 
 #if CFG_SUPPORT_WAKEUP_STATISTICS
 	WAKEUP_STATISTIC arWakeupStatistic[WAKEUP_TYPE_NUM];
+	int wake_event_count[EVENT_ID_END];
 #endif
 
 	UINT_32 u4AirDelayTotal;	/*  dbg privilege power mode, always keep in active */

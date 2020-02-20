@@ -332,36 +332,24 @@ static int mtk_pcm_I2S0dl1_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 
 	substream->runtime->dma_bytes = params_buffer_bytes(hw_params);
-	/* pr_debug("mtk_pcm_hw_params dma_bytes = %d\n",substream->runtime->dma_bytes); */
-#if 1
+
 	if (mPlaybackSramState == SRAM_STATE_PLAYBACKFULL) {
-		/* substream->runtime->dma_bytes = AFE_INTERNAL_SRAM_SIZE; */
 		substream->runtime->dma_area = (unsigned char *)Get_Afe_SramBase_Pointer();
 		substream->runtime->dma_addr = AFE_INTERNAL_SRAM_PHY_BASE;
 		AudDrv_Allocate_DL1_Buffer(mDev, substream->runtime->dma_bytes);
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+	} else if (mPlaybackSramState == SRAM_STATE_PLAYBACKPARTIAL) {
+		substream->runtime->dma_area = (unsigned char *)Get_Afe_SramBase_Pointer() + GetCaptureSramPartial();
+		substream->runtime->dma_addr = AFE_INTERNAL_SRAM_PHY_BASE + GetCaptureSramPartial();
+		AudDrv_Allocate_DL1_Buffer(mDev, substream->runtime->dma_bytes);
+#endif
 	} else {
-		substream->runtime->dma_bytes = params_buffer_bytes(hw_params);
 		substream->runtime->dma_area = Dl1_Playback_dma_buf->area;
 		substream->runtime->dma_addr = Dl1_Playback_dma_buf->addr;
 		SetDL1Buffer(substream, hw_params);
 	}
-#else				/* old */
-	/* here to allcoate sram to hardware --------------------- */
-	AudDrv_Allocate_mem_Buffer(Soc_Aud_Digital_Block_MEM_DL1, substream->runtime->dma_bytes);
-#ifdef AUDIO_MEMORY_SRAM
-	/* substream->runtime->dma_bytes = AFE_INTERNAL_SRAM_SIZE; */
-	substream->runtime->dma_area = (unsigned char *)Get_Afe_SramBase_Pointer();
-	substream->runtime->dma_addr = AFE_INTERNAL_SRAM_PHY_BASE;
-#else
-	pI2S0dl1MemControl = Get_Mem_ControlT(Soc_Aud_Digital_Block_MEM_DL1);
-	Afe_Block = &pI2S0dl1MemControl->rBlock;
 
-	substream->runtime->dma_area = (unsigned char *)Afe_Block->pucVirtBufAddr;
-	substream->runtime->dma_addr = Afe_Block->pucPhysBufAddr;
-#endif
-	/* ------------------------------------------------------- */
-#endif
-	pr_debug("dma_bytes = %zu, dma_area = %p, dma_addr = 0x%lx\n",
+	pr_info("%s dma_bytes = %zu, dma_area = %p, dma_addr = 0x%lx\n", __func__,
 	       substream->runtime->dma_bytes, substream->runtime->dma_area,
 	       (long)substream->runtime->dma_addr);
 
@@ -386,9 +374,21 @@ static int mtk_pcm_I2S0dl1_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct mt_pcm_I2S0dl1_priv *priv = dev_get_drvdata(mDev);
 
+	pr_info("%s\n", __func__);
+
 	priv->prepared = false;
 
 	AfeControlSramLock();
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+	if (GetSramState() == SRAM_STATE_FREE || GetSramState() == SRAM_STATE_CAPTUREPARTIAL) {
+		mtk_I2S0dl1_hardware.buffer_bytes_max = GetPLaybackSramPartial();
+		mPlaybackSramState = SRAM_STATE_PLAYBACKPARTIAL;
+		SetSramState(mPlaybackSramState);
+	} else {
+		mtk_I2S0dl1_hardware.buffer_bytes_max = GetPLaybackDramSize();
+		mPlaybackSramState = SRAM_STATE_PLAYBACKDRAM;
+	}
+#else
 	if (GetSramState() == SRAM_STATE_FREE) {
 		mtk_I2S0dl1_hardware.buffer_bytes_max = GetPLaybackSramFullSize();
 		mPlaybackSramState = SRAM_STATE_PLAYBACKFULL;
@@ -397,12 +397,13 @@ static int mtk_pcm_I2S0dl1_open(struct snd_pcm_substream *substream)
 		mtk_I2S0dl1_hardware.buffer_bytes_max = GetPLaybackDramSize();
 		mPlaybackSramState = SRAM_STATE_PLAYBACKDRAM;
 	}
+#endif
 	AfeControlSramUnLock();
 
 	if (mPlaybackSramState == SRAM_STATE_PLAYBACKDRAM)
 		AudDrv_Emi_Clk_On();
 
-	pr_debug("mtk_I2S0dl1_hardware.buffer_bytes_max = %zu, mPlaybackSramState = %d\n",
+	pr_info("mtk_I2S0dl1_hardware.buffer_bytes_max = %zu, mPlaybackSramState = %d\n",
 	       mtk_I2S0dl1_hardware.buffer_bytes_max, mPlaybackSramState);
 	runtime->hw = mtk_I2S0dl1_hardware;
 
@@ -886,7 +887,7 @@ static int mtk_I2S0dl1_probe(struct platform_device *pdev)
 	mDev = &pdev->dev;
 
 	register_reboot_notifier(&mtk_I2S0dl1_reboot_notifier);
-	
+
 	return snd_soc_register_platform(&pdev->dev, &mtk_I2S0dl1_soc_platform);
 }
 

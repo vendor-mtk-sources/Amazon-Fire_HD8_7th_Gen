@@ -102,3 +102,9 @@ config SND_BT_SCO_I2S
 	default n
 	help
 	  Say Y if you enable BT SCO through I2S0/I2S3 4 pin interface
+
+config MTK_AUDIO_USE_SHARED_SRAM
+	bool "MTK_AUDIO_USE_SHARED_SRAM"
+	default n
+	help
+	  Say Y if you want to split the sram for playback (18K) and capture (18K).

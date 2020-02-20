@@ -875,6 +875,7 @@ typedef enum _ENUM_EVENT_ID_T {
 	EVENT_ID_RFTEST_READY = 0xFC,	/* 0xFC */
 	EVENT_ID_TX_DONE_STATUS = 0xFD,
 	EVENT_ID_WARNING_TO_DRIVER = 0xFE,	/* 0xFE, FW warning Log send to driver */
+	EVENT_ID_END
 } ENUM_EVENT_ID_T, *P_ENUM_EVENT_ID_T;
 
 /*******************************************************************************

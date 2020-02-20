@@ -1747,7 +1747,8 @@ nla_put_failure:
 *
 */
 /*----------------------------------------------------------------------------*/
-VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
+VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter,
+	IN OUT P_SW_RFB_T prSwRfb, int is_wakeup)
 {
 	P_CMD_INFO_T prCmdInfo;
 	P_MSDU_INFO_T prMsduInfo;
@@ -1766,6 +1767,14 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 	prGlueInfo = prAdapter->prGlueInfo;
 
 	DBGLOG(RX, INFO, "prEvent->ucEID = 0x%02x\n", prEvent->ucEID);
+
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	if (is_wakeup &&
+		prEvent->ucEID != EVENT_ID_GET_AIS_BSS_INFO &&
+		prEvent->ucEID != EVENT_ID_SLEEPY_NOTIFY)
+		prAdapter->wake_event_count[prEvent->ucEID]++;
+#endif
+
 	/* Event Handling */
 	switch (prEvent->ucEID) {
 	case EVENT_ID_WARNING_TO_DRIVER:
@@ -2619,6 +2628,10 @@ VOID nicRxProcessRFBs(IN P_ADAPTER_T prAdapter)
 {
 	P_RX_CTRL_T prRxCtrl;
 	P_SW_RFB_T prSwRfb = (P_SW_RFB_T) NULL;
+	int is_wakeup = 0;
+#if CFG_SUPPORT_WAKEUP_STATISTICS
+	P_WIFI_EVENT_T prEvent;
+#endif
 
 	KAL_SPIN_LOCK_DECLARATION();
 
@@ -2649,9 +2662,17 @@ VOID nicRxProcessRFBs(IN P_ADAPTER_T prAdapter)
 
 			case HIF_RX_PKT_TYPE_EVENT:
 #if	CFG_SUPPORT_WAKEUP_STATISTICS
-				nicUpdateWakeupStatistics(prAdapter, RX_EVENT_INT);
+				prEvent = (P_WIFI_EVENT_T)prSwRfb->pucRecvBuff;
+				if (prEvent->ucEID !=
+					EVENT_ID_GET_AIS_BSS_INFO &&
+					prEvent->ucEID !=
+					EVENT_ID_SLEEPY_NOTIFY) {
+					is_wakeup = nicUpdateWakeupStatistics
+						(prAdapter, RX_EVENT_INT);
+				}
 #endif
-				nicRxProcessEventPacket(prAdapter, prSwRfb);
+				nicRxProcessEventPacket(prAdapter,
+					prSwRfb, is_wakeup);
 				break;
 
 			case HIF_RX_PKT_TYPE_TX_LOOPBACK:

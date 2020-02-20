@@ -300,6 +300,7 @@ static int mtk_dl1_awb_pcm_open(struct snd_pcm_substream *substream)
 static int mtk_dl1_awb_pcm_close(struct snd_pcm_substream *substream)
 {
 	AudDrv_Emi_Clk_Off();
+	AudDrv_Clk_Off();
 	return 0;
 }
 

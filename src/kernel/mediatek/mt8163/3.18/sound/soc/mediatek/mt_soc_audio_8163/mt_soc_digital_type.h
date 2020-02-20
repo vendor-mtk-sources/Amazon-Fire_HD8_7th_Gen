@@ -608,6 +608,16 @@ typedef struct {
 	bool mFpga_bit_test;
 } AudioHdmi;
 
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+typedef enum {
+	SRAM_STATE_FREE = 0,
+	SRAM_STATE_PLAYBACKFULL = 0x1,
+	SRAM_STATE_PLAYBACKPARTIAL = 0x2,
+	SRAM_STATE_CAPTUREFULL = 0x4,
+	SRAM_STATE_CAPTUREPARTIAL = 0x8,
+	SRAM_STATE_PLAYBACKDRAM = 0x10,
+} AUDIO_SRAM_STATE;
+#else
 typedef enum {
 	SRAM_STATE_FREE = 0,
 	SRAM_STATE_PLAYBACKFULL = 0x1,
@@ -615,6 +625,7 @@ typedef enum {
 	SRAM_STATE_CAPTURE = 0x4,
 	SRAM_STATE_PLAYBACKDRAM = 0x8,
 } AUDIO_SRAM_STATE;
+#endif
 
 typedef struct {
 	unsigned int mMemoryState;

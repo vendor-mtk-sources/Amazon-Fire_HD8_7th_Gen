@@ -144,7 +144,7 @@ static unsigned int charging_hw_init(void *data)
 #endif
 
 	bq24297_set_en_hiz(0x0);
-	bq24297_set_vindpm(0x9);	/* VIN DPM check 4.60V */
+	bq24297_set_vindpm(0x7);	/* VIN DPM check 4.44V */
 	bq24297_set_reg_rst(0x0);
 	bq24297_set_wdt_rst(0x1);	/* Kick watchdog */
 	bq24297_set_sys_min(0x5);	/* Minimum system voltage 3.5V */

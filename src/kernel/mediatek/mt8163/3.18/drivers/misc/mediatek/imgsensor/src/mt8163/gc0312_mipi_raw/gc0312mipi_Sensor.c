@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************
  *
  * Filename:
@@ -130,8 +143,9 @@ static imgsensor_info_struct imgsensor_info = {
     .ihdr_le_firstline = 0,  //1,le first ; 0, se first
     .sensor_mode_num = 3,      //support sensor mode num
 
-    .cap_delay_frame = 2,        //enter capture delay frame num
-    .pre_delay_frame = 2,         //enter preview delay frame num
+	.cap_delay_frame = 5,        /*enter capture delay frame num*/
+	.pre_delay_frame = 5,         /*enter preview delay frame num*/
+
     .video_delay_frame = 2,        //enter video delay frame num
     .hs_video_delay_frame = 2,    //enter high speed video  delay frame num
     .slim_video_delay_frame = 2,//enter slim video delay frame num

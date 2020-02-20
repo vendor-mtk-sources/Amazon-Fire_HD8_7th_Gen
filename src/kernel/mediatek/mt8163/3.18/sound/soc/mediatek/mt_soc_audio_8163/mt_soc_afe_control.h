@@ -171,6 +171,7 @@ void AfeControlMutexUnLock(void);
 void AfeControlSramLock(void);
 void AfeControlSramUnLock(void);
 size_t GetCaptureSramSize(void);
+unsigned int GetCaptureSramPartial(void);
 unsigned int GetSramState(void);
 void ClearSramState(unsigned int State);
 void SetSramState(unsigned int State);

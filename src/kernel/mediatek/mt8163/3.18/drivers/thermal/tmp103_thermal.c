@@ -81,7 +81,7 @@ static int tmp103_thermal_get_temp(struct thermal_zone_device *thermal,
 	char buf[TMP103_METRICS_STR_LEN];
 	static atomic_t query_count;
 	unsigned count;
-	static unsigned int mask = 0xDFF;
+	static unsigned int mask = 0x1FFF;
 #endif
 
 	if (!tzone || !pdata)
@@ -96,11 +96,11 @@ static int tmp103_thermal_get_temp(struct thermal_zone_device *thermal,
 		temp = tdev->dev_ops->get_temp(tdev);
 
 #ifdef CONFIG_AMAZON_METRICS_LOG
-		/* Log in metrics around every 1 hour normally
-			and 2 mins wheny throttling */
+		/* Log in metrics around every 2 hour normally
+			and 4 mins wheny throttling */
 		if (!(count & mask)) {
 			snprintf(buf, TMP103_METRICS_STR_LEN,
-				"%s:%s_temp=%ld;CT;1:NR",
+				"%s:%s_temp=%ld;CT;1:NA",
 				PREFIX, tdev->name, temp);
 			log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
 		}
@@ -121,8 +121,8 @@ static int tmp103_thermal_get_temp(struct thermal_zone_device *thermal,
 	}
 
 #ifdef CONFIG_AMAZON_METRICS_LOG
-	/* Log in metrics around every 1 hour normally
-		and 2 mins wheny throttling */
+	/* Log in metrics around every 2 hour normally
+		and 4 mins wheny throttling */
 	if (!(count & mask)) {
 		snprintf(buf, TMP103_METRICS_STR_LEN,
 			"%s:%s_sensor_temp=%ld;CT;1:NR",
@@ -131,9 +131,9 @@ static int tmp103_thermal_get_temp(struct thermal_zone_device *thermal,
 	}
 
 	if (tempv > pdata->trips[0].temp)
-		mask = 0x3F;
+		mask = 0xFF;
 	else
-		mask = 0xDFF;
+		mask = 0x1FFF;
 #endif
 
 	*t = (unsigned long) tempv;

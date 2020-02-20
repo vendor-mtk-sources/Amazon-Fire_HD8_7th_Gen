@@ -34,9 +34,6 @@
 #define AUDIO_ALLOCATE_SMP_RATE_DECLARE
 #include "mt_soc_pcm_common.h"
 
-#if 0
-#define CAPTURE_FORCE_USE_DRAM /* force use DRAM for record */
-#endif
 
 /* information about */
 AFE_MEM_CONTROL_T *VUL_Control_context;
@@ -240,7 +237,7 @@ static void SetVULBuffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	AFE_BLOCK_T *pblock = &VUL_Control_context->rBlock;
 
-	pr_debug("SetVULBuffer\n");
+	pr_info("SetVULBuffer\n");
 	pblock->pucPhysBufAddr = runtime->dma_addr;
 	pblock->pucVirtBufAddr = runtime->dma_area;
 	pblock->u4BufferSize = runtime->dma_bytes;
@@ -250,7 +247,7 @@ static void SetVULBuffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_
 	pblock->u4DataRemained = 0;
 	pblock->u4fsyncflag = false;
 	pblock->uResetFlag = true;
-	pr_debug("u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
+	pr_info("u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
 	       pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
 	/* set dram address top hardware */
 	Afe_Set_Reg(AFE_VUL_BASE, pblock->pucPhysBufAddr, 0xffffffff);
@@ -290,7 +287,7 @@ static int mtk_capture_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	SetVULBuffer(substream, hw_params);
 
-	pr_debug("dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
+	pr_info("dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
 	       substream->runtime->dma_bytes, substream->runtime->dma_area,
 	       (long)substream->runtime->dma_addr);
 	return ret;
@@ -326,12 +323,18 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 
 	/* can allocate sram_dbg */
 	AfeControlSramLock();
-
-#ifndef CAPTURE_FORCE_USE_DRAM
-	if (GetSramState() == SRAM_STATE_FREE) {
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+	if (GetSramState() == SRAM_STATE_FREE || GetSramState() == SRAM_STATE_PLAYBACKPARTIAL) {
+		pr_debug("mtk_capture_pcm_open use sram\n");
+		mtk_capture_hardware.buffer_bytes_max = GetCaptureSramPartial();
+		SetSramState(SRAM_STATE_CAPTUREPARTIAL);
+		mCaptureUseSram = true;
+	} else {
+		pr_debug("mtk_capture_pcm_open use dram\n");
+		mtk_capture_hardware.buffer_bytes_max = UL1_MAX_BUFFER_SIZE;
+	}
 #else
-	if (0) {
-#endif
+	if (GetSramState() == SRAM_STATE_FREE) {
 		pr_debug("mtk_capture_pcm_open use sram\n");
 		mtk_capture_hardware.buffer_bytes_max = GetCaptureSramSize();
 		SetSramState(SRAM_STATE_CAPTURE);
@@ -340,6 +343,7 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 		pr_debug("mtk_capture_pcm_open use dram\n");
 		mtk_capture_hardware.buffer_bytes_max = UL1_MAX_BUFFER_SIZE;
 	}
+#endif
 	AfeControlSramUnLock();
 
 	runtime->hw = mtk_capture_hardware;
@@ -382,7 +386,11 @@ static int mtk_capture_pcm_close(struct snd_pcm_substream *substream)
 		AudDrv_Emi_Clk_Off();
 
 	if (mCaptureUseSram == true) {
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+		ClearSramState(SRAM_STATE_CAPTUREPARTIAL);
+#else
 		ClearSramState(SRAM_STATE_CAPTURE);
+#endif
 		mCaptureUseSram = false;
 	}
 	AudDrv_ADC_Clk_Off();

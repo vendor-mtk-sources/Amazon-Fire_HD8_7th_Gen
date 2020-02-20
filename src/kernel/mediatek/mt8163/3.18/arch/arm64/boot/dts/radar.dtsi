@@ -135,7 +135,7 @@
 		compatible = "issi,is31fl3236";
 		reg = <0x3F>;
 		play-boot-animation;
-		channel-offset = /bits/ 8 <24>;
+		channel-offset = /bits/ 8 <3>;
 	};
 
 	tsl2584tsv@29 {

@@ -116,7 +116,12 @@ static AudioMemIFAttribute *mAudioMEMIF[Soc_Aud_Digital_Block_NUM_OF_DIGITAL_BLO
 static AudioAfeRegCache mAudioRegCache;
 static AudioSramManager mAudioSramManager;
 const unsigned int AudioSramPlaybackFullSize = 1024 * 36;
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+const unsigned int AudioSramPlaybackPartialSize = 1024 * 18;
+const unsigned int AudioSramCapturePartialSize = 1024 * 18;
+#else
 const unsigned int AudioSramPlaybackPartialSize = 1024 * 36;
+#endif
 const unsigned int AudioDramPlaybackSize = 1024 * 36;
 const size_t AudioSramCaptureSize = 1024 * 36;
 const size_t AudioDramCaptureSize = 1024 * 36;
@@ -218,8 +223,13 @@ unsigned int GetPLaybackSramPartial(void)
 {
 	unsigned int Sramsize = AudioSramPlaybackPartialSize;
 
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+	if (Sramsize + AudioSramCapturePartialSize > AFE_INTERNAL_SRAM_SIZE)
+		Sramsize = AFE_INTERNAL_SRAM_SIZE - AudioSramCapturePartialSize;
+#else
 	if (Sramsize > AFE_INTERNAL_SRAM_SIZE)
 		Sramsize = AFE_INTERNAL_SRAM_SIZE;
+#endif
 	return Sramsize;
 }
 
@@ -235,6 +245,20 @@ size_t GetCaptureSramSize(void)
 	if (Sramsize > AFE_INTERNAL_SRAM_SIZE)
 		Sramsize = AFE_INTERNAL_SRAM_SIZE;
 	return Sramsize;
+}
+
+unsigned int GetCaptureSramPartial(void)
+{
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+	unsigned int Sramsize = AudioSramCapturePartialSize;
+
+	if (Sramsize + AudioSramPlaybackPartialSize > AFE_INTERNAL_SRAM_SIZE)
+		Sramsize = AFE_INTERNAL_SRAM_SIZE - AudioSramPlaybackPartialSize;
+
+	return Sramsize;
+#else
+	return 0;
+#endif
 }
 
 size_t GetCaptureDramSize(void)
@@ -2631,13 +2655,30 @@ int AudDrv_Allocate_DL1_Buffer(struct device *pDev, kal_uint32 Afe_Buf_Length)
 	pblock = &(AFE_Mem_Control_context[Soc_Aud_Digital_Block_MEM_DL1]->rBlock);
 	pblock->u4BufferSize = Afe_Buf_Length;
 #ifdef AUDIO_MEMORY_SRAM
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+	if (Afe_Buf_Length + GetCaptureSramPartial() > AFE_INTERNAL_SRAM_SIZE) {
+		pr_err("%s DL buffer length exceeds the shared size!\n", __func__);
+		pr_err("Afe_Buf_Length: 0x%x, shared capture size: 0x%x, total sram size: 0x%x!\n",
+			Afe_Buf_Length, GetCaptureSramPartial(), AFE_INTERNAL_SRAM_SIZE);
+		return -1;
+	}
+#else
 	if (Afe_Buf_Length > AFE_INTERNAL_SRAM_SIZE) {
-		PRINTK_AUDDRV("Afe_Buf_Length > AUDDRV_DL1_MAX_BUFFER_LENGTH\n");
+		pr_err("Afe_Buf_Length > AUDDRV_DL1_MAX_BUFFER_LENGTH\n");
 		return -1;
 	}
 #endif
+#endif
 	/* allocate memory */
 	{
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+		/* todo , there should be a sram manager to allocate memory for low power */
+		u4PhyAddr = AFE_INTERNAL_SRAM_PHY_BASE + GetCaptureSramPartial();
+		pblock->pucPhysBufAddr = u4PhyAddr;
+		pblock->pucVirtBufAddr = (kal_uint8 *) Get_Afe_SramBase_Pointer() + GetCaptureSramPartial();
+		pr_info("%s Afe_Buf_Length = %d pucPhysBufAddr = 0x%x pucVirtBufAddr = %p\n", __func__,
+			      Afe_Buf_Length, pblock->pucPhysBufAddr, pblock->pucVirtBufAddr);
+#else
 #ifdef AUDIO_MEMORY_SRAM
 		/* todo , there should be a sram manager to allocate memory for low power */
 		u4PhyAddr = AFE_INTERNAL_SRAM_PHY_BASE;
@@ -2655,8 +2696,9 @@ int AudDrv_Allocate_DL1_Buffer(struct device *pDev, kal_uint32 Afe_Buf_Length)
 		    dma_alloc_coherent(pDev, pblock->u4BufferSize, &pblock->pucPhysBufAddr,
 				       GFP_KERNEL);
 #endif
+#endif
 	}
-	PRINTK_AUDDRV("AudDrv_Allocate_DL1_Buffer Afe_Buf_Length = %dpucVirtBufAddr = %p\n",
+	PRINTK_AUDDRV("AudDrv_Allocate_DL1_Buffer Afe_Buf_Length = %d pucVirtBufAddr = %p\n",
 		      Afe_Buf_Length, pblock->pucVirtBufAddr);
 	/* check 32 bytes align */
 	if ((pblock->pucPhysBufAddr & 0x1f) != 0)
@@ -2787,6 +2829,10 @@ bool ClearMemBlock(Soc_Aud_Digital_Block MemBlock)
 #ifdef AUDIO_MEM_IOREMAP
 		if (pBlock->pucVirtBufAddr == (kal_uint8 *) Get_Afe_SramBase_Pointer())
 			memset_io(pBlock->pucVirtBufAddr, 0, pBlock->u4BufferSize);
+#ifdef CONFIG_MTK_AUDIO_USE_SHARED_SRAM
+		else if (pBlock->pucVirtBufAddr == (kal_uint8 *) Get_Afe_SramBase_Pointer() + GetCaptureSramPartial())
+			memset_io(pBlock->pucVirtBufAddr, 0, pBlock->u4BufferSize);
+#endif
 		else {
 #endif
 			memset(pBlock->pucVirtBufAddr, 0, pBlock->u4BufferSize);

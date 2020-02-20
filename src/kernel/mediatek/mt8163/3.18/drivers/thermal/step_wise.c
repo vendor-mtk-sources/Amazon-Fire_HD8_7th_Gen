@@ -162,8 +162,12 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 			continue;
 
 		snprintf(data[0], sizeof(data[0]), "TRIP=%d", trip);
-		snprintf(data[1], sizeof(data[1]), "THERMAL_STATE=%ld",
-			 instance->target);
+		if (tz->temperature >= trip_temp)
+			snprintf(data[1], sizeof(data[1]), "THERMAL_STATE=%ld",
+					trip + 1);
+		else
+			snprintf(data[1], sizeof(data[1]), "THERMAL_STATE=%ld",
+					trip);
 		snprintf(data[2], sizeof(data[2]), "CDEV_TYPE=%s",
 			 instance->cdev->type);
 		kobject_uevent_env(&tz->device.kobj, KOBJ_CHANGE, envp);
