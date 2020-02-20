@@ -35,14 +35,14 @@ struct mtkts_bts_channel_param {
 	char *channelName;
 };
 
-#if defined(CONFIG_THERMAL_BISCUIT)
-#include "inc/mtk_ts_board_biscuit.h"
+#if defined(CONFIG_THERMAL_abh123)
+#include "inc/mtk_ts_board_abh123.h"
 #elif defined(CONFIG_THERMAL_abe123)
 #include "inc/mtk_ts_board_abe123.h"
 #elif defined(CONFIG_THERMAL_abc123)
-#include "inc/mtk_ts_board_biscuit.h"
+#include "inc/mtk_ts_board_abh123.h"
 #elif defined(CONFIG_THERMAL_abd123)
-#include "inc/mtk_ts_board_biscuit.h"
+#include "inc/mtk_ts_board_abh123.h"
 #elif defined (CONFIG_THERMAL_DOUGLAS)
 #include "inc/mtk_ts_board_douglas.h"
 #else

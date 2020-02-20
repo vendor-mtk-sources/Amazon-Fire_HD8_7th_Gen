@@ -703,8 +703,8 @@ int g_u4P2POnOffing = 0;
 #define IDME_OF_WIFI_MFG        "/idme/wifi_mfg"
 #define IDME_OF_BOARD_ID	"/idme/board_id"
 #define BOARD_ID_abf123_STR "0031"
-#define BOARD_ID_BISCUIT_STR "0110"
-#define BOARD_ID_COOKIE_STR "0110"
+#define BOARD_ID_abh123_STR "0110"
+#define BOARD_ID_abc123_STR "0110"
 #define BOARD_ID_abd123_STR "0120"
 #define BOARD_ID_DOUGLAS_STR "0032"
 char idme_board_id[16];
@@ -1227,7 +1227,7 @@ static COUNTRY_POWER_TABLE power_table_abf123[] = {
 		},
 };
 
-static COUNTRY_POWER_TABLE power_table_biscuit[] = {
+static COUNTRY_POWER_TABLE power_table_abh123[] = {
 		{
 			{'W', 'W',}, /*country code*/
 			{/*tx power*/
@@ -1543,8 +1543,8 @@ static COUNTRY_POWER_TABLE power_table_douglas[] = {
 
 struct board_id_power_table_map board_id_power_table_list[] = {
 	{BOARD_ID_abf123_STR, power_table_abf123, ARRAY_SIZE(power_table_abf123)},
-	{BOARD_ID_BISCUIT_STR, power_table_biscuit, ARRAY_SIZE(power_table_biscuit)},
-	{BOARD_ID_COOKIE_STR, power_table_biscuit, ARRAY_SIZE(power_table_biscuit)},
+	{BOARD_ID_abh123_STR, power_table_abh123, ARRAY_SIZE(power_table_abh123)},
+	{BOARD_ID_abc123_STR, power_table_abh123, ARRAY_SIZE(power_table_abh123)},
 	{BOARD_ID_abd123_STR, power_table_abd123, ARRAY_SIZE(power_table_abd123)},
 	{BOARD_ID_DOUGLAS_STR, power_table_douglas, ARRAY_SIZE(power_table_douglas)},
 };
@@ -3832,8 +3832,8 @@ static INT_32 wlanProbe(PVOID pvData)
 
 			prRegInfo->u4PowerMode = CFG_INIT_POWER_SAVE_PROF;
 
-			if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "biscuit", 7) == 0 ||
-				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "cookie", 6) == 0 ||
+			if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abh123", 7) == 0 ||
+				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abc123", 6) == 0 ||
 				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0) {
 				prRegInfo->fgEnArpFilter = FALSE;
 			} else {

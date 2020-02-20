@@ -21,6 +21,10 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+#endif
+
 #include "core.h"
 #include "bus.h"
 #include "mmc_ops.h"
@@ -66,6 +70,50 @@ static const unsigned int sd_au_size[] = {
 			__res |= resp[__off-1] << ((32 - __shft) % 32);	\
 		__res & __mask;						\
 	})
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#define METRICS_TIMEOUT_DELAY      (3*3600*HZ)
+#define SD_TIMEOUT_THRESHOLD       1000
+
+void sd_metrics_timeout_work(struct work_struct *work)
+{
+	struct mmc_host *host = container_of(work, struct mmc_host, metrics_timeout_work.work);
+	char buf[256] = {0};
+
+	if ((u64)atomic64_read(&host->data_timeout_count) > SD_TIMEOUT_THRESHOLD) {
+		mutex_lock(&host->cid_mutex);
+		snprintf(buf, sizeof(buf),
+			"%s:def:sdcard_datatimeout_ratio=%llu;CT;1,"
+			"sdcard_datatimeout_count=%llu;CT;1,sdcard_data_count=%llu;CT;1:NR",
+			host->cid, ((u64)atomic64_read(&host->data_timeout_count)*1000000)/(u64)atomic64_read(&host->data_count),
+			(u64)atomic64_read(&host->data_timeout_count),
+			(u64)atomic64_read(&host->data_count));
+		mutex_unlock(&host->cid_mutex);
+
+		log_to_metrics(ANDROID_LOG_INFO, "SDTimeoutEvent", buf);
+	}
+
+	mod_delayed_work(system_wq, &host->metrics_timeout_work, METRICS_TIMEOUT_DELAY);
+}
+
+static void metrics_sd_detect(struct mmc_host *host, bool inserted)
+{
+	if (inserted) {
+		mutex_lock(&host->cid_mutex);
+		snprintf(host->cid, 40, "%08x%08x%08x%08x",
+			host->card->raw_cid[0], host->card->raw_cid[1],
+			host->card->raw_cid[2], host->card->raw_cid[3]);
+		mutex_unlock(&host->cid_mutex);
+
+		mod_delayed_work(system_wq, &host->metrics_timeout_work,
+				METRICS_TIMEOUT_DELAY);
+	} else {
+		cancel_delayed_work(&host->metrics_timeout_work);
+		atomic64_set(&host->data_timeout_count, 0);
+		atomic64_set(&host->data_count, 0);
+	}
+}
+#endif
 
 /*
  * Given the decoded CSD structure, decode the raw CID to our CID structure.
@@ -1082,13 +1130,6 @@ static void mmc_sd_detect(struct mmc_host *host)
 	 * Just check if our card has been removed.
 	 */
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-#ifdef CONFIG_MMC_ERR_REMOVE
-	if (host->rest_remove_flags) {
-		err = 1;
-		goto remove_card;
-	}
-#endif
-
 	while(retries) {
 		err = mmc_send_status(host->card, NULL);
 		if (err) {
@@ -1106,12 +1147,12 @@ static void mmc_sd_detect(struct mmc_host *host)
 	err = _mmc_detect_card_removed(host);
 #endif
 
-#ifdef CONFIG_MMC_ERR_REMOVE
-remove_card:
-#endif
 	mmc_put_card(host->card);
 
 	if (err) {
+#ifdef CONFIG_AMAZON_METRICS_LOG
+		metrics_sd_detect(host, false);
+#endif
 		mmc_sd_remove(host);
 
 		mmc_claim_host(host);
@@ -1353,6 +1394,10 @@ int mmc_attach_sd(struct mmc_host *host)
 	mmc_claim_host(host);
 	if (err)
 		goto remove_card;
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	metrics_sd_detect(host, true);
+#endif
 
 	return 0;
 

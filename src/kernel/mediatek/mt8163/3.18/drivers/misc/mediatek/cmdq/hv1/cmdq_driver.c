@@ -274,11 +274,11 @@ static void cmdq_driver_process_read_address_request(struct cmdqReadAddressStruc
 	CMDQ_LOG("[READ_PA] cmdq_driver_process_read_address_request()\n");
 
 	do {
-		if (NULL == req_user ||
-		    0 == req_user->count ||
+		if (!req_user ||
+			req_user->count == 0 ||
 			req_user->count > CMDQ_MAX_DUMP_REG_COUNT ||
-			NULL == CMDQ_U32_PTR(req_user->values) ||
-		    NULL == CMDQ_U32_PTR(req_user->dmaAddresses)) {
+			!CMDQ_U32_PTR(req_user->values) ||
+			!CMDQ_U32_PTR(req_user->dmaAddresses)) {
 			CMDQ_ERR("[READ_PA] invalid req_user\n");
 			break;
 		}
@@ -479,6 +479,26 @@ static long cmdq_driver_process_command_request(struct cmdqCommandStruct *pComma
 	return 0;
 }
 
+static long cmdq_verify_command(struct cmdqCommandStruct *command)
+{
+	/*
+	 * block size must grate than 16bytes (contains EOC + JMP)
+	 * block size must less than 64k
+	 * each cmdq instruction is 64bit,
+	 * block size must be multiple of 8
+	 */
+	if (command->blockSize < (2 * CMDQ_INST_SIZE)
+	   || (command->blockSize > CMDQ_MAX_COMMAND_SIZE)
+	   || (command->blockSize % 8 != 0)
+	   ) {
+		CMDQ_ERR("Command block size invalid! size:%d\n",
+			command->blockSize);
+		return -EFAULT;
+	}
+
+    return 0;
+}
+
 static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long param)
 {
 	int mutex;
@@ -538,9 +558,11 @@ static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long para
 		if (copy_from_user(&command, (void *)param, sizeof(struct cmdqCommandStruct)))
 			return -EINVAL;
 
-		if (command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT ||
-			!command.blockSize ||
-			command.blockSize > CMDQ_MAX_COMMAND_SIZE)
+		if (cmdq_verify_command(&command) != 0)
+			return -EINVAL;
+
+
+		if (command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT)
 			return -EINVAL;
 
 		if (cmdqCoreIsEarlySuspended() && (CMDQ_SCENARIO_USER_MDP == command.scenario))
@@ -569,8 +591,8 @@ static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long para
 		if (copy_from_user(&job, (void *)param, sizeof(struct cmdqJobStruct)))
 			return -EINVAL;
 
-		if (job.command.blockSize > CMDQ_MAX_COMMAND_SIZE)
-			return -EINVAL;
+		if (cmdq_verify_command(&(job.command)) != 0)
+			return -EFAULT;
 
 		if (cmdqCoreIsEarlySuspended() && (CMDQ_SCENARIO_USER_MDP == job.command.scenario)) {
 			CMDQ_ERR("CMDQ_IOCTL_ASYNC_JOB_EXEC suspended, return\n");
@@ -735,9 +757,12 @@ static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long para
 				return -EFAULT;
 			}
 
-			if (addrReq.count == 0) {
-				CMDQ_ERR("invalide allocate buffer count\n");
-				return -EFAULT;
+			if (!addrReq.count
+			    || addrReq.count > CMDQ_MAX_WRITE_ADDR_COUNT) {
+				CMDQ_ERR(
+				"Invalid alloc write addr count:%u\n",
+					addrReq.count);
+				return -EINVAL;
 			}
 			status = cmdqCoreAllocWriteAddress(addrReq.count, &paStart);
 			if (0 != status) {
@@ -1038,7 +1063,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 	/* ioctl access point (/dev/mtk_cmdq) */
 	gCmdqCDev = cdev_alloc();
 	gCmdqCDev->owner = THIS_MODULE;
-	gCmdqCDev->ops = &cmdqOP;
+	gCmdqCDev->ops = NULL;
 
 	status = cdev_add(gCmdqCDev, gCmdqDevNo, 1);
 

@@ -4,8 +4,8 @@ config MTK_THERMAL_PA_VIA_ATCMD
 	  Internal switch for thermal management to query modem RF
 	  temperature via AT command.
 
-config THERMAL_BISCUIT
-	bool "THERMAL_BISCUIT"
+config THERMAL_abh123
+	bool "THERMAL_abh123"
 
 config THERMAL_abe123
 	bool "Thermal support for abe123"

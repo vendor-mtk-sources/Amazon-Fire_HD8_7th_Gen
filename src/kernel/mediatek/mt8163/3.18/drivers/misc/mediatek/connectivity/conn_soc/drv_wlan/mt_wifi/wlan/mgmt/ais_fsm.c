@@ -1066,9 +1066,9 @@ VOID aisInitializeConnectionSettings(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T p
 	/* Setup default values for operation */
 	COPY_MAC_ADDR(prConnSettings->aucMacAddress, aucZeroMacAddr);
 
-	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "biscuit", 7) == 0 ||
-		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "cookie", 6) == 0 ||
-		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) == 0)
+	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abh123", 7) == 0 ||
+		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abc123", 6) == 0 ||
+		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0)
 		ucDelayDisconnectTime =
 			AIS_DELAY_TIME_OF_LONG_DISC_SEC_DUALBAND;
 	else
@@ -2835,11 +2835,11 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 					aisIndicationOfMediaStateToHost(prAdapter, PARAM_MEDIA_STATE_CONNECTED,
 									FALSE);
 
-					/*disable auto tx power for radar*/
-					if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) == 0) {
+					/*disable auto tx power for abd123*/
+					if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0) {
 						CMD_SW_DBG_CTRL_T rCmdSwCtrl;
 
-						DBGLOG(AIS, INFO, "Disable auto tx power for radar when connected\n");
+						DBGLOG(AIS, INFO, "Disable auto tx power for abd123 when connected\n");
 						rCmdSwCtrl.u4Id = 0xa0100003;
 						rCmdSwCtrl.u4Data = 0x0;
 						wlanSendSetQueryCmd(prAdapter,

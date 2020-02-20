@@ -47,9 +47,3 @@ config MMC_DETECT_WORK_WAKELOCK
 	  If you say Y here, only take the wakelock when the detect work is
 	  queued, otherwise take the wakelock for delayed lazy disable work.
 
-config MMC_ERR_REMOVE
-	bool "SD Card will be removed if SD card keeps reporting error"
-	default n
-	help
-	  If you say Y here, when SD card still keep reporting error after being
-	  reseted twice, SD card will be removed.

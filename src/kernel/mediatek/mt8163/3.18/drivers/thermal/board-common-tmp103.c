@@ -76,6 +76,20 @@ static struct mtk_thermal_platform_data tmp103_thermal_data = {
 		.num_tbps = 3,
 		.tbp = tbp
 	},
+#if defined(CONFIG_THERMAL_DOUGLAS)
+	.trips[0] = {.temp = 44500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
+	.trips[1] = {.temp = 44833, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
+	.trips[2] = {.temp = 45167, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
+	.trips[3] = {.temp = 45500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
+	.trips[4] = {.temp = 49000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
+	.trips[5] = {.temp = 52000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
+	.trips[6] = {.temp = 54000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[7] = {.temp = 54000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[8] = {.temp = 54000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[9] = {.temp = 54000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[10] = {.temp = 54000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[11] = {.temp = 54000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+#else
 	.trips[0] = {.temp = 50250, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
 	.trips[1] = {.temp = 50500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
 	.trips[2] = {.temp = 50750, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
@@ -83,11 +97,20 @@ static struct mtk_thermal_platform_data tmp103_thermal_data = {
 	.trips[4] = {.temp = 52000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
 	.trips[5] = {.temp = 53000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0},
 	.trips[6] = {.temp = 60000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+#if defined(CONFIG_THERMAL_abf123)
+	.trips[7] = {.temp = 60000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[8] = {.temp = 60000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[9] = {.temp = 60000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[10] = {.temp = 60000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+	.trips[11] = {.temp = 60000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+#else
 	.trips[7] = {.temp = 46000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
 	.trips[8] = {.temp = 47000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
 	.trips[9] = {.temp = 48000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
 	.trips[10] = {.temp = 49000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
 	.trips[11] = {.temp = 50000, .type = THERMAL_TRIP_CRITICAL, .hyst = 0},
+#endif
+#endif
 	.num_cdevs = 3,
 	.cdevs[0] = "thermal_budget",
 	.cdevs[1] = "lcd-backlight",

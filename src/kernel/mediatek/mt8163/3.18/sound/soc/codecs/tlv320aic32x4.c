@@ -52,7 +52,7 @@ struct aic32x4_configs {
 	u8 reg_val;
 };
 
-static const struct aic32x4_configs biquad_Play_Biscuit[] = {
+static const struct aic32x4_configs biquad_Play_abh123[] = {
 	/* Playback Filters */
 	/* Force DRC (Dynamic Range Compression) off */
 	{AIC32X4_DRCCTRLREG1, 0x0F},
@@ -950,8 +950,8 @@ static int aic32x4_hw_params(struct snd_pcm_substream *substream,
 	snd_soc_write(codec, AIC32X4_DACSPB, 0x2);
 
 	/* Program the biquads and DRC */
-	pConfigRegs = biquad_Play_Biscuit;
-	size = ARRAY_SIZE(biquad_Play_Biscuit);
+	pConfigRegs = biquad_Play_abh123;
+	size = ARRAY_SIZE(biquad_Play_abh123);
 	for (j = 0; j < size; j++) {
 		/* Get the register offset and value */
 		snd_soc_write(codec,

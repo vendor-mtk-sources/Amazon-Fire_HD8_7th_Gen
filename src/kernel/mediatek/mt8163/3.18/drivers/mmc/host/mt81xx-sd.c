@@ -971,6 +971,10 @@ static void msdc_start_data(struct msdc_host *host, struct mmc_request *mrq,
 
 	mod_delayed_work(system_wq, &host->req_timeout, DAT_TIMEOUT);
 	host->req_count++;
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	if (!strcmp(mmc_hostname(host->mmc), "mmc1"))
+		atomic64_inc(&host->mmc->data_count);
+#endif
 	dev_dbg(host->dev, "crc/total %d/%d invalcrc %d datato %d cmdto %d reqto %d total_pc %d pc_sus %d\n",
 				host->crc_count, host->req_count, host->crc_invalid_count, host->datatimeout_count,
 				host->cmdtimeout_count, host->reqtimeout_count, host->pc_count, host->pc_suspend);
@@ -1333,6 +1337,10 @@ static bool msdc_data_xfer_done(struct msdc_host *host, u32 events,
 				}
 				data->error = -ETIMEDOUT;
 				host->datatimeout_count++;
+#ifdef CONFIG_AMAZON_METRICS_LOG
+				if (!strcmp(mmc_hostname(host->mmc), "mmc1"))
+					atomic64_inc(&host->mmc->data_timeout_count);
+#endif
 			}
 			else if (events & MSDC_INT_DATCRCERR) {
 				data->error = -EILSEQ;

@@ -49,7 +49,7 @@ static struct thermal_dev_ops mtktspmic_sensor_fops = {
 };
 
 struct thermal_dev_params mtktspmic_sensor_tdp = {
-#if defined(CONFIG_THERMAL_BISCUIT)
+#if defined(CONFIG_THERMAL_abh123)
 	.offset = 0,
 	.alpha = 0,
 	.weight = 0

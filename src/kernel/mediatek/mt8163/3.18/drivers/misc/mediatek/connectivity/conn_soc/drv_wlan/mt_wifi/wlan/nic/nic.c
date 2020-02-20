@@ -2067,9 +2067,9 @@ WLAN_STATUS nicUpdateBss(IN P_ADAPTER_T prAdapter, IN ENUM_NETWORK_TYPE_INDEX_T 
 	else
 		rCmdSetBssInfo.ucStaRecIdxOfAP = STA_REC_INDEX_NOT_FOUND;
 
-	if ((kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "biscuit", 7) == 0 ||
-		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "cookie", 6) == 0 ||
-		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) == 0) &&
+	if ((kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abh123", 7) == 0 ||
+		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abc123", 6) == 0 ||
+		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0) &&
 			(prBssInfo->ucNetTypeIndex == NETWORK_TYPE_AIS_INDEX)) {
 		if (prBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED &&
 			prBssInfo->eBand == BAND_2G4) {
@@ -2360,8 +2360,8 @@ WLAN_STATUS nicEnterCtiaMode(IN P_ADAPTER_T prAdapter, BOOLEAN fgEnterCtia, BOOL
 
 		/* Enable auto tx power */
 		/*  */
-		if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) != 0) {
-			/*don't enable auto tx power for radar*/
+		if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) != 0) {
+			/*don't enable auto tx power for abd123*/
 			rCmdSwCtrl.u4Id = 0xa0100003;
 			rCmdSwCtrl.u4Data = 0x1;
 			wlanSendSetQueryCmd(prAdapter,

@@ -315,7 +315,12 @@ struct mmc_host {
 #endif
 
 #ifdef CONFIG_AMAZON_METRICS_LOG
-		struct delayed_work 	metrics_delay_work; /* delayed metrics output */
+	struct delayed_work	metrics_delay_work; /* delayed metrics output */
+	struct delayed_work	metrics_timeout_work; /* delayed metrics output */
+	atomic64_t data_count; /* total send data count */
+	atomic64_t data_timeout_count; /* data timeout count */
+	struct mutex cid_mutex; /*mutex for CID RW */
+	char cid[40]; /* raw card CID */
 #endif /* CONFIG_AMAZON_METRICS_LOG */
 
 	/* host specific block data */
@@ -362,9 +367,6 @@ struct mmc_host {
 	struct delayed_work	detect;
 #ifdef CONFIG_MMC_DETECT_WORK_WAKELOCK
 	struct wake_lock	detect_wake_lock;
-#endif
-#ifdef CONFIG_MMC_ERR_REMOVE
-	bool			rest_remove_flags;
 #endif
 	int			detect_change;	/* card detect flag */
 	struct mmc_slot		slot;
