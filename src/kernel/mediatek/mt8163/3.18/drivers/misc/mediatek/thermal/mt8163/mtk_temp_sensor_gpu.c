@@ -50,7 +50,7 @@ static struct thermal_dev_ops mtktsgpu_sensor_fops = {
 };
 
 struct thermal_dev_params mtktsgpu_sensor_tdp = {
-#if defined(CONFIG_THERMAL_ABC)
+#if defined(CONFIG_THERMAL_SONAR)
 	.offset = 0,
 	.alpha = 0,
 	.weight = 0

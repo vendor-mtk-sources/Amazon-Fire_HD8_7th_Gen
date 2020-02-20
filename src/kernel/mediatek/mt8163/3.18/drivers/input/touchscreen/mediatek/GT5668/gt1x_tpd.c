@@ -31,7 +31,7 @@
 #include <linux/input/mt.h>
 #endif
 #include <linux/suspend.h>
-#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#if defined(CONFIG_rsa123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 #include <mt_boot_common.h>
 #endif
 
@@ -946,7 +946,7 @@ static void tpd_suspend(struct device *h)
 {
 	/*Stub here to prevent IC from going to sleep*/
 	/* ..except in KPOC mode */
-#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#if defined(CONFIG_rsa123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT)
 		gt1x_suspend();
 #endif
@@ -956,7 +956,7 @@ static void tpd_resume(struct device *h)
 {
 	/*Stub here to prevent IC from waking*/
 	/* ..except in KPOC mode */
-#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#if defined(CONFIG_rsa123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
 		mutex_lock(&i2c_access);
 		gt1x_resume();

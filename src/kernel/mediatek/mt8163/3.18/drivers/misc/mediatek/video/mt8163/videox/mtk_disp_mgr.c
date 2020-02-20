@@ -1321,6 +1321,46 @@ static int set_primary_buffer(disp_session_input_config *input)
 
 }
 
+static int _disp_validate_color_fmt(DISP_FORMAT fmt)
+{
+	unsigned int fmt_id = 0;
+
+	fmt_id = GET_DISP_FORMAT_ID(fmt);
+	if (fmt_id < GET_DISP_FORMAT_ID(DISP_FORMAT_RGB565) ||
+		fmt_id > GET_DISP_FORMAT_ID(DISP_FORMAT_YV12)) {
+		DISPERR("%s: error format 0x%x\n", __func__, fmt);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int _disp_validate_session_input_params(disp_session_input_config *cfg)
+{
+	unsigned int i = 0;
+	unsigned int max = HW_OVERLAY_COUNT;
+
+	if (cfg->config_layer_num > max) {
+		DISPERR("%s: config_layer_num(%u) > %u",
+				__func__, cfg->config_layer_num, max);
+		return -1;
+	}
+
+	for (i = 0; i < cfg->config_layer_num; i++) {
+		if (cfg->config[i].layer_id >= max) {
+			DISPERR("%s: layer_id(%u) >= %u", __func__,
+					cfg->config_layer_num, max);
+			return -1;
+		}
+
+		if (cfg->config[i].layer_enable &&
+			(_disp_validate_color_fmt(cfg->config[i].src_fmt) == -1))
+		return -1;
+	}
+
+	return 0;
+}
+
 int _ioctl_set_input_buffer(unsigned long arg)
 {
 	int ret = 0;
@@ -1333,6 +1373,10 @@ int _ioctl_set_input_buffer(unsigned long arg)
 		DISPMSG("[FB]: copy_from_user failed! line:%d\n", __LINE__);
 		return -EFAULT;
 	}
+
+	if (_disp_validate_session_input_params(&session_input) == -1)
+		return -EFAULT;
+
 	session_input.setter = SESSION_USER_HWC;
 	session_id = session_input.session_id;
 

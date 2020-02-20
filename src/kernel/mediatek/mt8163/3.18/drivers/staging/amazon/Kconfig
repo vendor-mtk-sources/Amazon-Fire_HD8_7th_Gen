@@ -65,10 +65,10 @@ config rbc123
 	help
 	isolate amazon rbc123 changes for MTK Platform
 
-config ABC
-	bool "ABC MTK platform project"
+config SONAR
+	bool "Sonar MTK platform project"
 	help
-	isolate Amazon ABC changes for MTK Platform
+	isolate Amazon Sonar changes for MTK Platform
 
 config AMAZON_LL_LOG
         bool "Low Level Log Support"

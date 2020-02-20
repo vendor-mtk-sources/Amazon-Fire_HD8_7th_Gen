@@ -189,7 +189,7 @@ static s32 calibrated_lux_at_0 = -1;
 /* Max Raw measurement */
 static s32 calibrated_lux_at_300 = -1;
 
-#ifdef CONFIG_ABC
+#ifdef CONFIG_rsa123
 static const char* evt_board_id = "0130001200130017";
 static const int evt_multiplier_nr = 10;
 static const int evt_multiplier_dr = 23;
@@ -874,7 +874,7 @@ void idme_set_alscal_calibrated_values(void)
 		return;
 	}
 
-#ifdef CONFIG_ABC
+#ifdef CONFIG_rsa123
 	if (strncmp(boardid_idme, evt_board_id, strlen(evt_board_id)) == 0) {
 		multiplier_nr = evt_multiplier_nr;
 		multiplier_dr = evt_multiplier_dr;

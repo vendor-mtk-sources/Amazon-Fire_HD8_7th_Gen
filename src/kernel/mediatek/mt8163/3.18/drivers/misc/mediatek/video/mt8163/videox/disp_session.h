@@ -8,6 +8,7 @@
 #define DISP_NO_USE_LAEYR_ID           ((int)(~0U>>1))
 
 #define MAKE_DISP_FORMAT_ID(id, bpp)  (((id) << 8) | (bpp))
+#define GET_DISP_FORMAT_ID(fmt) ((fmt) >> 8)
 #define DISP_SESSION_MODE(id) (((id)>>24)&0xff)
 #define DISP_SESSION_TYPE(id) (((id)>>16)&0xff)
 #define DISP_SESSION_DEV(id) ((id)&0xff)

@@ -37,9 +37,9 @@ struct mtkts_bts_channel_param {
 
 #if defined(CONFIG_THERMAL_BISCUIT)
 #include "inc/mtk_ts_board_biscuit.h"
-#elif defined(CONFIG_THERMAL_ABC)
-#include "inc/mtk_ts_board_ABC.h"
-#elif defined(CONFIG_THERMAL_ABC)
+#elif defined(CONFIG_THERMAL_rsa123)
+#include "inc/mtk_ts_board_rsa123.h"
+#elif defined(CONFIG_THERMAL_SONAR)
 #include "inc/mtk_ts_board_biscuit.h"
 #elif defined(CONFIG_THERMAL_RADAR)
 #include "inc/mtk_ts_board_biscuit.h"
