@@ -33,6 +33,9 @@
 #include "osal_typedef.h"
 #include "stp_exp.h"
 #include "wmt_exp.h"
+#ifdef CONFIG_AMAZON_A2DP_TS
+#include "btif_audio_ts.h"
+#endif
 
 MODULE_LICENSE("Dual BSD/GPL");
 
@@ -494,13 +497,19 @@ static void BT_exit(void)
 
 int mtk_wcn_stpbt_drv_init(void)
 {
+#ifdef CONFIG_AMAZON_A2DP_TS
+	btif_ts_init();
+#endif
 	return BT_init();
 }
 EXPORT_SYMBOL(mtk_wcn_stpbt_drv_init);
 
 void mtk_wcn_stpbt_drv_exit(void)
 {
-	return BT_exit();
+	BT_exit();
+#ifdef CONFIG_AMAZON_A2DP_TS
+	btif_ts_exit();
+#endif
 }
 EXPORT_SYMBOL(mtk_wcn_stpbt_drv_exit);
 

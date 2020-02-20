@@ -18,6 +18,7 @@
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/mutex.h>
 /* #include <asm/io.h> */
 /* #include <asm/tcm.h> */
 #include <linux/proc_fs.h>	/* proc file use */
@@ -557,7 +558,10 @@ static volatile int g_bWaitLock;
 
 static atomic_t g_imem_ref_cnt[ISP_REF_CNT_ID_MAX];
 
-MUINT32 g_EnableClkCnt = 0;
+static atomic_t  g_EnableClkCnt = ATOMIC_INIT(0);
+
+static DEFINE_MUTEX(g_ClkMutex);
+
 volatile MUINT32 g_TempAddr = 0;
 
 /* static ISP_DEQUE_BUF_INFO_STRUCT g_deque_buf = {0,{}};    // Marked to remove build warning.WARNING */
@@ -1803,25 +1807,27 @@ static inline void Disable_Unprepare_ccf_clock(void)
 
 MVOID ISP_EnableClock(MBOOL En, MUINT32 LogLevel)
 {
-
 	if (LogLevel > 0) {
-		LOG_INF("En  (%d),g_EnableClkCnt(%d)", En, g_EnableClkCnt);
+		LOG_INF("En  (%d),g_EnableClkCnt(%d)", En, atomic_read(&g_EnableClkCnt));
 	}
 
 	if (En) {		/* enable clock. */
 #ifdef CONFIG_MTK_CLKMGR
+		mutex_lock(&g_ClkMutex);
 		enable_clock(MT_CG_DISP0_SMI_COMMON, "CAMERA");
 		enable_clock(MT_CG_IMAGE_CAM_SMI, "CAMERA");
 		enable_clock(MT_CG_IMAGE_CAM_CAM, "CAMERA");
 		enable_clock(MT_CG_IMAGE_SEN_TG, "CAMERA");
 		enable_clock(MT_CG_IMAGE_SEN_CAM, "CAMERA");
 		enable_clock(MT_CG_IMAGE_LARB2_SMI, "CAMERA");
-		g_EnableClkCnt++;
+		atomic_inc(&g_EnableClkCnt);
+		mutex_unlock(&g_ClkMutex);
 		/*LOG_DBG("Camera clock enbled. g_EnableClkCnt(%d)", g_EnableClkCnt);*/
 #else	/* Camera CCF & PM */
-		g_EnableClkCnt++;
+		mutex_lock(&g_ClkMutex);
 		Prepare_Enable_ccf_clock();
-		LOG_DBG_IF("Prepare_Enable_ccf_clock() ==> g_EnableClkCnt(%d -> %d)", (g_EnableClkCnt-1), g_EnableClkCnt);
+		atomic_inc(&g_EnableClkCnt);
+		mutex_unlock(&g_ClkMutex);
 #endif
 
 		/* MTCMOS/Clock status checking */
@@ -1850,22 +1856,26 @@ MVOID ISP_EnableClock(MBOOL En, MUINT32 LogLevel)
 		}
 	} else {		/* disable clock. */
 #ifdef CONFIG_MTK_CLKMGR
+		mutex_lock(&g_ClkMutex);
 		disable_clock(MT_CG_IMAGE_CAM_SMI, "CAMERA");
 		disable_clock(MT_CG_IMAGE_CAM_CAM, "CAMERA");
 		disable_clock(MT_CG_IMAGE_SEN_TG, "CAMERA");
 		disable_clock(MT_CG_IMAGE_SEN_CAM, "CAMERA");
 		disable_clock(MT_CG_IMAGE_LARB2_SMI, "CAMERA");
 		disable_clock(MT_CG_DISP0_SMI_COMMON, "CAMERA");
-		g_EnableClkCnt--;
+		atomic_dec(&g_EnableClkCnt);
+		mutex_unlock(&g_ClkMutex);
 		/*LOG_DBG("Camera clock disabled. g_EnableClkCnt(%d)", g_EnableClkCnt);*/
 #else	/* Camera CCF & PM */
-		if (g_EnableClkCnt == 0) {
+		mutex_lock(&g_ClkMutex);
+		if (atomic_read(&g_EnableClkCnt) == 0) {
 			LOG_INF("Now: EnableClkCnt=0, just return!");
+			mutex_unlock(&g_ClkMutex);
 			return;
 		}
-		g_EnableClkCnt--;
 		Disable_Unprepare_ccf_clock();
-		LOG_DBG_IF("Disable_Unprepare_ccf_clock() ==> g_EnableClkCnt(%d -> %d)", (g_EnableClkCnt+1), g_EnableClkCnt);
+		atomic_dec(&g_EnableClkCnt);
+		mutex_unlock(&g_ClkMutex);
 #endif
 	}
 
@@ -5483,7 +5493,7 @@ static MINT32 ISP_open(struct inode *pInode, struct file *pFile)
 	ISP_USER_INFO_STRUCT *pUserInfo;
 	unsigned long flags;
 
-	LOG_DBG_IF("+,UserCount(%d), g_EnableClkCnt(%d)", g_IspInfo.UserCount, g_EnableClkCnt);
+	LOG_DBG_IF("+,UserCount(%d), g_EnableClkCnt(%d)", g_IspInfo.UserCount, atomic_read(&g_EnableClkCnt));
 
 	/* LOG_DBG("UserCount(%d)",g_IspInfo.UserCount); */
 
@@ -5575,14 +5585,14 @@ EXIT:
 
 		ISP_EnableClock(MTRUE, 1);
 		ISP_WR32((void *)ISP_REG_ADDR_TG_VF_CON, 0);
-		LOG_DBG_IF("isp open g_EnableClkCnt:	%d", g_EnableClkCnt);
+		LOG_DBG_IF("isp open g_EnableClkCnt:	%d", atomic_read(&g_EnableClkCnt));
 	}
 
 	/* LOG_DBG("Before spm_disable_sodi()."); */
 	/* Disable sodi (Multi-Core Deep Idle). */
 	/* spm_disable_sodi(); */
 
-	LOG_DBG_IF("-,Ret(%d),UserCount(%d), g_EnableClkCnt(%d)", Ret, g_IspInfo.UserCount, g_EnableClkCnt);
+	LOG_DBG_IF("-,Ret(%d),UserCount(%d), g_EnableClkCnt(%d)", Ret, g_IspInfo.UserCount, atomic_read(&g_EnableClkCnt));
 
 	return Ret;
 }
@@ -5594,7 +5604,7 @@ static MINT32 ISP_release(struct inode *pInode, struct file *pFile)
 {
 	ISP_USER_INFO_STRUCT *pUserInfo;
 
-	LOG_DBG_IF("+,UserCount(%d), g_EnableClkCnt(%d)", g_IspInfo.UserCount, g_EnableClkCnt);
+	LOG_DBG_IF("+,UserCount(%d), g_EnableClkCnt(%d)", g_IspInfo.UserCount, atomic_read(&g_EnableClkCnt));
 
 	spin_lock(&(g_IspInfo.SpinLockIspRef));
 
@@ -5658,7 +5668,7 @@ EXIT:
 	 */
 	ISP_WR32((void *)ISP_REG_ADDR_TG_VF_CON, 0);
 	ISP_EnableClock(MFALSE, 1);
-	LOG_DBG_IF("-,UserCount(%d), g_EnableClkCnt(%d)", g_IspInfo.UserCount, g_EnableClkCnt);
+	LOG_DBG_IF("-,UserCount(%d), g_EnableClkCnt(%d)", g_IspInfo.UserCount, atomic_read(&g_EnableClkCnt));
 	return 0;
 }
 
@@ -6248,12 +6258,29 @@ static MINT32 ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 	}
 
 	/* for workaround : enable count mismatch with disable count*/
-	if (g_EnableClkCnt > 0) {
-		int i;
-		/* disable clock for g_EnableClkCnt times */
-		for (i = 0; i < g_EnableClkCnt; ++i)
-			ISP_EnableClock(MFALSE, 1);
+	if (mutex_trylock(&g_ClkMutex) == 0) {
+		LOG_ERR("trylock fail, abort suspend");
+		return -EBUSY;
 	}
+	if (atomic_read(&g_EnableClkCnt) > 0) {
+		LOG_WRN("g_EnableClkCnt %d", atomic_read(&g_EnableClkCnt));
+	}
+	/* disable clock for g_EnableClkCnt times */
+	while (atomic_read(&g_EnableClkCnt) > 0) {
+#ifdef CONFIG_MTK_CLKMGR
+		disable_clock(MT_CG_IMAGE_CAM_SMI, "CAMERA");
+		disable_clock(MT_CG_IMAGE_CAM_CAM, "CAMERA");
+		disable_clock(MT_CG_IMAGE_SEN_TG, "CAMERA");
+		disable_clock(MT_CG_IMAGE_SEN_CAM, "CAMERA");
+		disable_clock(MT_CG_IMAGE_LARB2_SMI, "CAMERA");
+		disable_clock(MT_CG_DISP0_SMI_COMMON, "CAMERA");
+		atomic_dec(&g_EnableClkCnt);
+#else	/* Camera CCF & PM */
+		Disable_Unprepare_ccf_clock();
+		atomic_dec(&g_EnableClkCnt);
+#endif
+	}
+	mutex_unlock(&g_ClkMutex);
 	return 0;
 }
 

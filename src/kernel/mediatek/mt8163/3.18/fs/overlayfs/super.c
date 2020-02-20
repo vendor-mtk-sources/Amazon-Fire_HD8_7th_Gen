@@ -9,6 +9,7 @@
 
 #include <linux/fs.h>
 #include <linux/namei.h>
+#include <linux/pagemap.h>
 #include <linux/xattr.h>
 #include <linux/security.h>
 #include <linux/mount.h>
@@ -663,6 +664,8 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 		goto out_free_config;
 	}
 
+	sb->s_maxbytes = MAX_LFS_FILESIZE;
+
 	err = -ENOMEM;
 	oe = ovl_alloc_entry();
 	if (oe == NULL)
@@ -751,9 +754,15 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 	 */
 	ufs->lower_mnt->mnt_flags |= MNT_READONLY;
 
+	if (ufs->lower_mnt->mnt_flags & MNT_NOSUID)
+		sb->s_iflags |= SB_I_NOSUID;
+
 	/* If the upper fs is r/o, we mark overlayfs r/o too */
 	if (ufs->upper_mnt->mnt_sb->s_flags & MS_RDONLY)
 		sb->s_flags |= MS_RDONLY;
+
+	if (ufs->upper_mnt->mnt_flags & MNT_NOSUID)
+		sb->s_iflags |= SB_I_NOSUID;
 
 	sb->s_d_op = &ovl_dentry_operations;
 

@@ -446,6 +446,7 @@ static int mtk_pcm_I2S0dl1_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
 	I2S0dl1_substream = substream;
+	pr_info("+%s() Playback_Audio I2S1 open\n", __func__);
 
 	AfeControlSramLock();
 	if (GetSramState() == SRAM_STATE_FREE) {
@@ -488,6 +489,7 @@ static int mtk_pcm_I2S0dl1_open(struct snd_pcm_substream *substream)
 		return ret;
 	}
 
+	pr_info("-%s() Playback_Audio I2S1 open\n", __func__);
 	/* pr_debug("mtk_pcm_I2S0dl1_open return\n"); */
 	return 0;
 }
@@ -498,7 +500,7 @@ static int mtk_pcm_I2S0dl1_close(struct snd_pcm_substream *substream)
 
 	I2S0dl1_substream = NULL;
 
-	pr_debug("%s\n", __func__);
+	pr_info("+%s() Playback_Audio I2S1 close\n", __func__);
 
 	if (mPrepareDone == true) {
 		/* stop DAC output */
@@ -542,6 +544,7 @@ static int mtk_pcm_I2S0dl1_close(struct snd_pcm_substream *substream)
 	AfeControlSramUnLock();
 	AudDrv_Clk_Off();
 	AudDrv_ANA_Clk_Off();
+	pr_info("-%s() Playback_Audio I2S1 close\n", __func__);
 	return 0;
 }
 
@@ -551,6 +554,8 @@ static int mtk_pcm_I2S0dl1_prepare(struct snd_pcm_substream *substream)
 	uint32 MclkDiv3;
 	uint32 u32AudioI2S = 0;
 	bool mI2SWLen;
+
+	pr_info("+%s() Playback_Audio I2S1 prepare\n", __func__);
 
 	if (mPrepareDone == false) {
 		pr_debug("%s format = %d SNDRV_PCM_FORMAT_S32_LE = %d SNDRV_PCM_FORMAT_U32_LE = %d\n",
@@ -673,6 +678,7 @@ static int mtk_pcm_I2S0dl1_prepare(struct snd_pcm_substream *substream)
 		EnableAfe(true);
 		mPrepareDone = true;
 	}
+	pr_info("-%s() Playback_Audio I2S1 prepare\n", __func__);
 	return 0;
 }
 
@@ -680,7 +686,7 @@ static int mtk_pcm_I2S0dl1_start(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
-	pr_debug("%s\n", __func__);
+	pr_info("+%s() Playback_Audio I2S1 start\n", __func__);
 	/* here start digital part */
 
 #ifndef BCM_SCO_I2S
@@ -702,6 +708,7 @@ static int mtk_pcm_I2S0dl1_start(struct snd_pcm_substream *substream)
 
 	EnableAfe(true);
 
+	pr_info("-%s() Playback_Audio I2S1 start\n", __func__);
 	return 0;
 }
 

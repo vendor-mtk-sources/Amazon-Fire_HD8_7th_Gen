@@ -65,10 +65,10 @@ config rbc123
 	help
 	isolate amazon rbc123 changes for MTK Platform
 
-config SONAR
-	bool "Sonar MTK platform project"
+config abc123
+	bool "abc123 MTK platform project"
 	help
-	isolate Amazon Sonar changes for MTK Platform
+	isolate Amazon abc123 changes for MTK Platform
 
 config AMAZON_LL_LOG
         bool "Low Level Log Support"
@@ -77,6 +77,21 @@ config AMAZON_LL_LOG
         help
           Cache the log of LK and Preloader at /proc/pllk.
 
+config AMAZON_A2DP_TS
+	bool "Gather and report A2DP timestamps"
+	depends on MTK_BTIF
+	help
+	Enable A2DP timestamps reporting to user space
+
+choice
+	prompt "A2DP timestamps"
+	depends on AMAZON_A2DP_TS
+	default AMAZON_A2DP_TS_DMA
+
+config AMAZON_A2DP_TS_DMA
+	bool "A2DP timestamps are gathered when we trigger DMA transfer"
+
+endchoice
 
 endif # if AMAZON
 

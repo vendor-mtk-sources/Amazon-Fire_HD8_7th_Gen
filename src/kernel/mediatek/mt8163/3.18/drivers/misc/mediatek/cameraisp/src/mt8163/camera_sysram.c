@@ -819,17 +819,19 @@ static int SYSRAM_Flush(struct file *pFile, fl_owner_t Id)
 static int SYSRAM_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	/* LOG_MSG(""); */
-	long length = 0;
+	unsigned long length = 0;
 	MUINT32 pfn = 0x0;
 
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
-	length = (long)(pVma->vm_end - pVma->vm_start);
+	length = pVma->vm_end - pVma->vm_start;
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 	LOG_WRN
 	    ("pVma->vm_pgoff(0x%lx),phy(0x%lx),pVmapVma->vm_start(0x%lx),pVma->vm_end(0x%lx),length(0x%lx)",
 	     pVma->vm_pgoff, pVma->vm_pgoff << PAGE_SHIFT, pVma->vm_start, pVma->vm_end, length);
+
 	if ((length > ISP_VALID_REG_RANGE) || (pfn < IMGSYS_BASE_ADDR)
-	    || (pfn > (IMGSYS_BASE_ADDR + ISP_VALID_REG_RANGE))) {
+	    || (pfn > (IMGSYS_BASE_ADDR + ISP_VALID_REG_RANGE))
+	    || pVma->vm_end <= pVma->vm_start) {
 		LOG_ERR
 		    ("mmap range error : vm_start(0x%lx),vm_end(0x%lx),length(0x%lx),pfn(0x%lx)!",
 		     pVma->vm_start, pVma->vm_end, length, pfn);

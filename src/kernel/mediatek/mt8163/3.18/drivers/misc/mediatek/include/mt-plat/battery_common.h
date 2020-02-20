@@ -336,6 +336,10 @@ extern PMU_STATUS do_jeita_state_machine(void);
 
 #endif
 
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+extern void init_jeita_cv_voltage_from_sysfs(void);
+#endif
+
 #ifdef CONFIG_MTK_POWER_EXT_DETECT
 extern bool bat_is_ext_power(void);
 #endif

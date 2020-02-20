@@ -227,7 +227,7 @@ static int rotary_encoder_probe(struct platform_device *pdev)
 
 	if (pdata->relative_axis) {
 		/* DEE-40256: Map volume ring type to Button Mouse for
-		 * Sonar CSM framework. */
+		 * abc123 CSM framework. */
 		input->evbit[0] = BIT_MASK(EV_REL) | BIT_MASK(EV_KEY);
 		input->relbit[0] = BIT_MASK(pdata->axis) | BIT_MASK(REL_Y);
 		input->keybit[BIT_WORD(BTN_MOUSE)] = BIT_MASK(BTN_MOUSE);

@@ -13,7 +13,7 @@
 #include "ddp_pwm.h"
 #include "ddp_path.h"
 
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 #define PWM_DEFAULT_DIV_VALUE 0x2
 #else
 #define PWM_DEFAULT_DIV_VALUE 0x0

@@ -932,7 +932,7 @@ static int amzn_mt_spi_probe(struct spi_device *spi)
 	size_t bytes;
 	void *fw_buf;
 	/* TODO: Enable it for all products */
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 	struct regulator *reg = NULL;
 	int volt, reg_status_before = 0, reg_status_after;
 #endif
@@ -943,7 +943,7 @@ static int amzn_mt_spi_probe(struct spi_device *spi)
 
 	pr_info("%s\n", __func__);
 
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 	/* VCCIO2 Enabled */
 	reg = devm_regulator_get(&spi->dev, "vcamaf");
 	if (IS_ERR(reg)) {

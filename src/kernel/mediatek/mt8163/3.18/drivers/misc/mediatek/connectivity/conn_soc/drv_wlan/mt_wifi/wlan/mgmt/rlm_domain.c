@@ -137,7 +137,7 @@ static const UINT_16 g_u2CountryGroup0[] = {
 static const UINT_16 g_u2CountryGroup1[] = {
 	COUNTRY_CODE_AS, COUNTRY_CODE_AI, COUNTRY_CODE_BM, COUNTRY_CODE_CA,
 	COUNTRY_CODE_KY, COUNTRY_CODE_GU, COUNTRY_CODE_FM, COUNTRY_CODE_PR,
-	COUNTRY_CODE_US, COUNTRY_CODE_VI,
+	COUNTRY_CODE_US, COUNTRY_CODE_VI, COUNTRY_CODE_MX
 
 };
 
@@ -216,9 +216,9 @@ static const UINT_16 g_u2CountryGroup15[] = { COUNTRY_CODE_NG };
 
 static const UINT_16 g_u2CountryGroup16[] = {
 	COUNTRY_CODE_BD, COUNTRY_CODE_BR, COUNTRY_CODE_DM, COUNTRY_CODE_DO,
-	COUNTRY_CODE_FK, COUNTRY_CODE_KZ, COUNTRY_CODE_MX, COUNTRY_CODE_MZ,
+	COUNTRY_CODE_FK, COUNTRY_CODE_KZ, COUNTRY_CODE_ZW, COUNTRY_CODE_MZ,
 	COUNTRY_CODE_NA, COUNTRY_CODE_RU, COUNTRY_CODE_LC, COUNTRY_CODE_VC,
-	COUNTRY_CODE_UA, COUNTRY_CODE_UZ, COUNTRY_CODE_ZW
+	COUNTRY_CODE_UA, COUNTRY_CODE_UZ
 };
 static const UINT_16 g_u2CountryGroup17[] = { COUNTRY_CODE_MP };
 static const UINT_16 g_u2CountryGroup18[] = { COUNTRY_CODE_TW };
@@ -815,19 +815,27 @@ SUBBAND_CHANNEL_T g_rRlmSubBand[] = {
 #endif
 
 #if CFG_CUSTOM_REG
+
+#define SUPPORT_ALL		BITS(0, 31)
+#define SUPPORT_DEFAULT		BIT(0)
+#define SUPPORT_BISCUIT		BIT(1)
+#define SUPPORT_abd123		BIT(2)
+#define SUPPORT_abf123		BIT(3)
+
 static struct reg_mapping support_region[] = {
-	{ COUNTRY_CODE_WW, REGION_CODE_WW },
-	{ COUNTRY_CODE_IN, REGION_CODE_IN },
-	{ COUNTRY_CODE_US, REGION_CODE_FCC },
-	{ COUNTRY_CODE_CA, REGION_CODE_CA },
-	{ COUNTRY_CODE_JP, REGION_CODE_JP },
-	{ COUNTRY_CODE_FR, REGION_CODE_CE },
-	{ COUNTRY_CODE_DE, REGION_CODE_CE },
-	{ COUNTRY_CODE_IT, REGION_CODE_CE },
-	{ COUNTRY_CODE_ES, REGION_CODE_CE },
-	{ COUNTRY_CODE_GB, REGION_CODE_CE },
-	{ COUNTRY_CODE_FR, REGION_CODE_CE },
-	{ COUNTRY_CODE_AT, REGION_CODE_CE },
+	{ COUNTRY_CODE_WW, REGION_CODE_WW, SUPPORT_ALL},
+	{ COUNTRY_CODE_IN, REGION_CODE_IN, SUPPORT_ALL},
+	{ COUNTRY_CODE_US, REGION_CODE_FCC, SUPPORT_ALL},
+	{ COUNTRY_CODE_CA, REGION_CODE_CA, SUPPORT_ALL},
+	{ COUNTRY_CODE_JP, REGION_CODE_JP, SUPPORT_ALL},
+	{ COUNTRY_CODE_FR, REGION_CODE_CE, SUPPORT_ALL},
+	{ COUNTRY_CODE_DE, REGION_CODE_CE, SUPPORT_ALL},
+	{ COUNTRY_CODE_IT, REGION_CODE_CE, SUPPORT_ALL},
+	{ COUNTRY_CODE_ES, REGION_CODE_CE, SUPPORT_ALL},
+	{ COUNTRY_CODE_GB, REGION_CODE_CE, SUPPORT_ALL},
+	{ COUNTRY_CODE_FR, REGION_CODE_CE, SUPPORT_ALL},
+	{ COUNTRY_CODE_AT, REGION_CODE_CE, SUPPORT_ALL},
+	{ COUNTRY_CODE_MX, REGION_CODE_FCC, SUPPORT_abd123},
 };
 #endif
 
@@ -1938,10 +1946,14 @@ VOID rlmDomainSendPwrLimitCmd(P_ADAPTER_T prAdapter)
 UINT_16 rlm_get_support_country(UINT_16 country)
 {
 	UINT_16 ret = COUNTRY_CODE_WW;
-	UINT_32 i;
+	UINT_32 i, u4Project = SUPPORT_DEFAULT;
+
+	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0)
+		u4Project = SUPPORT_abd123;
 
 	for (i = 0; i < ARRAY_SIZE(support_region); i++) {
-		if (country == support_region[i].country_code)
+		if ((country == support_region[i].country_code) &&
+			(support_region[i].u4SupportProj & u4Project))
 			return country;
 	}
 	DBGLOG(RLM, INFO, "Country:%x is not support.Replaced with WW\n",
@@ -1952,10 +1964,14 @@ UINT_16 rlm_get_support_country(UINT_16 country)
 UINT_16 rlm_get_region(UINT_16 country)
 {
 	UINT_16 ret = REGION_CODE_WW;
-	UINT_32 i;
+	UINT_32 i, u4Project = SUPPORT_DEFAULT;
+
+	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0)
+		u4Project = SUPPORT_abd123;
 
 	for (i = 0; i < ARRAY_SIZE(support_region); i++) {
-		if (country == support_region[i].country_code)
+		if ((country == support_region[i].country_code) &&
+			(support_region[i].u4SupportProj & u4Project))
 			return support_region[i].region;
 	}
 	DBGLOG(RLM, INFO, "Country:%x is not support.Replaced with WW\n",

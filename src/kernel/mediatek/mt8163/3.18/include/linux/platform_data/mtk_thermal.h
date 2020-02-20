@@ -24,7 +24,7 @@ struct mtk_cooler_platform_data {
 	int levels[THERMAL_MAX_TRIPS];
 };
 
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 struct cdev_t {
 	char type[THERMAL_NAME_LENGTH];
 	unsigned long upper;
@@ -36,7 +36,7 @@ struct trip_t {
 	unsigned long temp;
 	enum thermal_trip_type type;
 	unsigned long hyst;
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 	struct cdev_t cdev[THERMAL_MAX_TRIPS];
 #endif
 };

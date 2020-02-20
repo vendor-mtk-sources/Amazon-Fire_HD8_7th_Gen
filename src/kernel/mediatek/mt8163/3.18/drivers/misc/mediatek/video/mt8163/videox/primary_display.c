@@ -91,7 +91,7 @@ static WDMA_CONFIG_STRUCT decouple_wdma_config;
 static disp_mem_output_config mem_config;
 
 static unsigned int primary_session_id = MAKE_DISP_SESSION(DISP_SESSION_PRIMARY, 0);
-
+static bool disable_ddr_self_refresh_before_update;
 /* primary display uses itself's abs macro */
 #ifdef abs
 #undef  abs
@@ -2578,7 +2578,8 @@ int _trigger_display_interface(int blocking, void *callback, unsigned int userda
 	static unsigned int cnt;
 
 	/* 4. enable SODI after config */
-	if (primary_display_is_video_mode() == 1)
+	if (primary_display_is_video_mode() == 1
+		&& !disable_ddr_self_refresh_before_update)
 		disp_set_sodi(1, pgc->cmdq_handle_config);
 
 #ifdef DISP_ENABLE_SODI_FOR_VIDEO_MODE
@@ -2624,6 +2625,10 @@ int _trigger_display_interface(int blocking, void *callback, unsigned int userda
 					    DISP_REG_OVL1_STATUS_PA);
 	}
 
+	if (primary_display_is_video_mode() == 1
+		&& disable_ddr_self_refresh_before_update)
+		disp_set_sodi(1, pgc->cmdq_handle_config);
+
 	if (_should_flush_cmdq_config_handle())
 		_cmdq_flush_config_handle(blocking, callback, userdata);
 
@@ -2638,8 +2643,12 @@ int _trigger_display_interface(int blocking, void *callback, unsigned int userda
 	/* TODO: _is_decouple_mode() shuold be protected by mutex!!!!!!!!when dynamic switch decouple/directlink */
 	if (_should_insert_wait_frame_done_token() && (!_is_decouple_mode(pgc->session_mode))) {
 		/* 2. enable SODI by CMDQ before wait */
-		if (primary_display_is_video_mode() == 1)
-			disp_set_sodi(1, pgc->cmdq_handle_config);
+		if (primary_display_is_video_mode() == 1) {
+			if (disable_ddr_self_refresh_before_update)
+				disp_set_sodi(0, pgc->cmdq_handle_config);
+			else
+				disp_set_sodi(1, pgc->cmdq_handle_config);
+		}
 
 		_cmdq_insert_wait_frame_done_token();
 
@@ -4229,6 +4238,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps)
 	mutex_init(&(pgc->switch_dst_lock));
 #endif
 	_primary_path_lock(__func__);
+
+	disable_ddr_self_refresh_before_update = true;
 
 	pgc->plcm = disp_lcm_probe(lcm_name, LCM_INTERFACE_NOTDEFINED);
 

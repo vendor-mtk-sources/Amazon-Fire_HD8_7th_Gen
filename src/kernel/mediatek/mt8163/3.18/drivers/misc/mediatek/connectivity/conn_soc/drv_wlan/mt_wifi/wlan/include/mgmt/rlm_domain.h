@@ -570,6 +570,7 @@ typedef struct _SUBBAND_CHANNEL_T {
 struct reg_mapping {
 	UINT_16 country_code;
 	UINT_16 region;
+	UINT_32 u4SupportProj;
 };
 #endif
 

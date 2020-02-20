@@ -164,7 +164,7 @@ void start_privacy_timer_func(struct work_struct *work)
 }
 EXPORT_SYMBOL(start_privacy_timer_func);
 
-/* ported from Hendrix driver, currently not used
+/* ported from abc123 driver, currently not used
  * leaving in case required for future features
  */
 static ssize_t get_power_button_state(struct device *dev,
@@ -277,7 +277,7 @@ static DEVICE_ATTR(privacy_timer_on, S_IRUGO,
 static DEVICE_ATTR(shutdown_dialog_state, S_IWUSR | S_IWGRP | S_IRUGO,
 		   get_shutdown_dialog_state,
 		   set_shutdown_dialog_state);
-/* ported from Hendrix driver, currently not used
+/* ported from abc123 driver, currently not used
  * leaving in case required for future features
  */
 static DEVICE_ATTR(power_button_state, S_IWUSR | S_IWGRP | S_IRUGO,
@@ -297,7 +297,7 @@ static struct attribute_group gpio_keys_attr_group = {
 	.attrs = gpio_keys_attrs,
 };
 
-/* ported from Hendrix driver, currently not used
+/* ported from abc123 driver, currently not used
  * leaving in case required for future features
  */
 int amz_set_public_hw_pin(int gpio)
@@ -322,7 +322,7 @@ int amz_set_public_hw_pin(int gpio)
 }
 EXPORT_SYMBOL(amz_set_public_hw_pin);
 
-/* ported from Hendrix driver, currently not used
+/* ported from abc123 driver, currently not used
  * leaving in case required for future features
  */
 int amz_set_mute_pin(int gpio)
@@ -484,7 +484,7 @@ int amz_priv_kickoff(struct device *dev)
 			pr_err("%s:%u request threaded irq returned: %d\n", __func__, __LINE__, ret);
 	}
 
-#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#if defined(CONFIG_abe123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
 		amz_priv_trigger(1);
 		priv_dis = true;

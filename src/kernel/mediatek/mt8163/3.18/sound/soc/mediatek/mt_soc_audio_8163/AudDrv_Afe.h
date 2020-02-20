@@ -391,6 +391,7 @@ typedef struct {
 #define AUDIO_CLK_AUDDIV_0    (0x05A0)
 #define AUDIO_CLK_AUDDIV_1    (0x05A4)
 
+#define CLK_MAX_LENGTH (0x05A4)
 
 #ifdef AUDIO_TOP_CON0
 #undef AUDIO_TOP_CON0

@@ -363,6 +363,9 @@ struct mmc_host {
 #ifdef CONFIG_MMC_DETECT_WORK_WAKELOCK
 	struct wake_lock	detect_wake_lock;
 #endif
+#ifdef CONFIG_MMC_ERR_REMOVE
+	bool			rest_remove_flags;
+#endif
 	int			detect_change;	/* card detect flag */
 	struct mmc_slot		slot;
 

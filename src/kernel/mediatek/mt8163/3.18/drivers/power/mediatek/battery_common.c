@@ -253,7 +253,7 @@ unsigned int g_batt_temp_status = TEMP_POS_NORMAL;
 
 bool battery_suspended = false;
 struct timespec chr_plug_in_time;
-#define PLUGIN_THRESHOLD (14*86400)
+#define PLUGIN_THRESHOLD (7*86400)
 
 /*#ifdef MTK_ENABLE_AGING_ALGORITHM
 extern unsigned int suspend_time;
@@ -4144,6 +4144,14 @@ void BAT_thread(void)
 	if (battery_meter_initilized == false) {
 		battery_meter_initial();	/* move from battery_probe() to decrease booting time */
 		BMT_status.nPercent_ZCV = battery_meter_get_battery_nPercent_zcv();
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+#if defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
+		gFG_CV_Battery_Voltage = batt_cust_data.jeita_temp_pos_10_to_pos_45_cv_voltage;
+#else
+		gFG_CV_Battery_Voltage = 4200000;
+#endif
+		gFG_CV_Voltage_Reduction_Supported = 1;
+#endif
 		battery_meter_initilized = true;
 	}
 
@@ -5105,6 +5113,18 @@ static int __batt_init_cust_data_from_dt(void)
 
 	of_node_put(np);
 	return 0;
+}
+#endif
+
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+void init_jeita_cv_voltage_from_sysfs(void)
+{
+#if defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
+	batt_cust_data.jeita_temp_below_neg_10_cv_voltage = gFG_CV_Battery_Voltage;
+	batt_cust_data.jeita_temp_neg_10_to_pos_0_cv_voltage = gFG_CV_Battery_Voltage;
+	batt_cust_data.jeita_temp_pos_0_to_pos_10_cv_voltage = gFG_CV_Battery_Voltage;
+	batt_cust_data.jeita_temp_pos_10_to_pos_45_cv_voltage = gFG_CV_Battery_Voltage;
+#endif
 }
 #endif
 

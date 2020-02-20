@@ -7,6 +7,7 @@ ifneq ($(KERNELRELEASE),)
 
 	obj-y += btif.o
 	btif-y	:= mtk_btif.o mtk_btif_exp.o btif_dma_plat.o btif_plat.o
+	btif-$(CONFIG_AMAZON_A2DP_TS) += btif_audio_ts.o
 
 # Otherwise we were called directly from the command
 # line; invoke the kernel build system.

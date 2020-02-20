@@ -37,16 +37,16 @@ struct mtkts_bts_channel_param {
 
 #if defined(CONFIG_THERMAL_BISCUIT)
 #include "inc/mtk_ts_board_biscuit.h"
-#elif defined(CONFIG_THERMAL_ROOK)
-#include "inc/mtk_ts_board_rook.h"
-#elif defined(CONFIG_THERMAL_SONAR)
+#elif defined(CONFIG_THERMAL_abe123)
+#include "inc/mtk_ts_board_abe123.h"
+#elif defined(CONFIG_THERMAL_abc123)
 #include "inc/mtk_ts_board_biscuit.h"
-#elif defined(CONFIG_THERMAL_RADAR)
+#elif defined(CONFIG_THERMAL_abd123)
 #include "inc/mtk_ts_board_biscuit.h"
 #elif defined (CONFIG_THERMAL_DOUGLAS)
 #include "inc/mtk_ts_board_douglas.h"
 #else
-#include "inc/mtk_ts_board_giza.h"
+#include "inc/mtk_ts_board_abf123.h"
 #endif
 
 
@@ -557,7 +557,7 @@ static ssize_t mtkts_bts_write(struct file *file,
 	desc[len] = '\0';
 
 	if (sscanf(desc,
-			"%d %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d",
+			"%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",
 			&num_trip, &trip[0], &t_type[0], bind0, &trip[1],
 			&t_type[1], bind1, &trip[2], &t_type[2], bind2,
 			&trip[3], &t_type[3], bind3, &trip[4], &t_type[4],

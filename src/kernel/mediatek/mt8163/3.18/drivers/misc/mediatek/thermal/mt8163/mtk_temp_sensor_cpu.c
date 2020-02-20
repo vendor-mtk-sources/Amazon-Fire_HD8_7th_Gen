@@ -50,11 +50,11 @@ static struct thermal_dev_ops mtktscpu_sensor_fops = {
 };
 
 struct thermal_dev_params mtktscpu_sensor_tdp = {
-#if defined(CONFIG_THERMAL_SONAR)
+#if defined(CONFIG_THERMAL_abc123)
 	.offset = 0,
 	.alpha = 0,
 	.weight = 0
-#elif defined(CONFIG_THERMAL_RADAR)
+#elif defined(CONFIG_THERMAL_abd123)
 	.offset = 0,
 	.alpha = 0,
 	.weight = 0

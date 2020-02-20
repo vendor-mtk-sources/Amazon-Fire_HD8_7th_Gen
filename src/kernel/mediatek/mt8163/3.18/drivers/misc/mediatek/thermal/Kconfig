@@ -7,23 +7,23 @@ config MTK_THERMAL_PA_VIA_ATCMD
 config THERMAL_BISCUIT
 	bool "THERMAL_BISCUIT"
 
-config THERMAL_ROOK
-	bool "Thermal support for ROOK"
+config THERMAL_abe123
+	bool "Thermal support for abe123"
 	default n
 	help
-	  For ROOK specific thermal configurations.
+	  For abe123 specific thermal configurations.
 
-config THERMAL_SONAR
-	bool "Thermal support for SONAR"
+config THERMAL_abc123
+	bool "Thermal support for abc123"
 	default n
 	help
-	  For SONAR specific configurations for thermal related.
+	  For abc123 specific configurations for thermal related.
 
-config THERMAL_RADAR
-	bool "Thermal support for RADAR"
+config THERMAL_abd123
+	bool "Thermal support for abd123"
 	default n
 	help
-	  For RADAR specific configurations for thermal related.
+	  For abd123 specific configurations for thermal related.
 
 config THERMAL_DOUGLAS
 	bool "THERMAL_DOUGLAS"

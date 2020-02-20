@@ -161,11 +161,22 @@ uint32 Afe_Get_Reg(uint32 offset)
 }
 EXPORT_SYMBOL(Afe_Get_Reg);
 
+static bool CheckClkOffset(uint32 offset)
+{
+	if (offset > CLK_MAX_LENGTH)
+		return false;
+
+	return true;
+}
+
 /* function to Set Cfg */
 uint32 GetClkCfg(uint32 offset)
 {
 	volatile long address = (long)((char *)AFE_CLK_ADDRESS + offset);
 	volatile uint32 *value;
+
+	if (CheckClkOffset(offset) == false)
+		return 0xffffffff;
 
 	value = (volatile uint32 *)(address);
 	/* PRINTK_AUDDRV("GetClkCfg offset=%x address=%x value=%x\n", offset, address, *value); */
@@ -180,6 +191,10 @@ void SetClkCfg(uint32 offset, uint32 value, uint32 mask)
 	volatile uint32 val_tmp;
 
 	PRINTK_AUDDRV("SetClkCfg offset=%x, value=%x, mask=%x\n", offset, value, mask);
+
+	if (CheckClkOffset(offset) == false)
+		return;
+
 	val_tmp = GetClkCfg(offset);
 	val_tmp &= (~mask);
 	val_tmp |= (value & mask);

@@ -7,6 +7,11 @@
 
 #include "btif_dma_priv.h"
 
+#ifdef CONFIG_AMAZON_A2DP_TS_DMA
+#include "btif_audio_ts.h"
+#include <mt-plat/mt_gpt.h>
+#endif
+
 #define DMA_USER_ID "btif_driver"
 
 /************************************Global variable***********************************/
@@ -764,6 +769,26 @@ we clear tx flag and disable btif tx interrupt
 	return i_ret;
 }
 
+#ifdef CONFIG_AMAZON_A2DP_TS_DMA
+static inline unsigned int get_audio_ts(
+			const unsigned char *p_buf, const unsigned int buf_len)
+{
+	if (buf_len > 20 &&      /* Ignore short packets */
+		p_buf[4] == 0x2 &&   /* Packet Type == ACL Data Packet */
+		p_buf[14] == 0x60) { /* RTP Payload Type == Dynamic. See AVDTP spec 7.2.1 Media Packet Format */
+		unsigned int pkt_ts;
+
+		/* RTP Time Stamp (sample number). See AVDTP spec 7.2.1 Media Packet Format */
+		pkt_ts = p_buf[17] << 24;
+		pkt_ts |= p_buf[18] << 16;
+		pkt_ts |= p_buf[19] << 8;
+		pkt_ts |= p_buf[20];
+		return pkt_ts;
+	}
+	return UINT_MAX;
+}
+#endif
+
 /*****************************************************************************
 * FUNCTION
 *  hal_dma_send_data
@@ -791,6 +816,10 @@ int hal_dma_send_data(P_MTK_DMA_INFO_STR p_dma_info,
 	P_MTK_BTIF_DMA_VFIFO p_mtk_vfifo = container_of(p_vfifo,
 							MTK_BTIF_DMA_VFIFO,
 							vfifo);
+#ifdef CONFIG_AMAZON_A2DP_TS_DMA
+	unsigned int audio_ts;
+	unsigned int gpt_val[2];
+#endif
 
 	BTIF_TRC_FUNC();
 	if ((NULL == p_buf) || (0 == buf_len)) {
@@ -867,8 +896,21 @@ otherwise common logic layer will not call hal_dma_send_data*/
 		i_ret = 0;
 	}
 
+#ifdef CONFIG_AMAZON_A2DP_TS_DMA
+	audio_ts = get_audio_ts(p_buf, buf_len);
+	if (audio_ts != UINT_MAX) {
+		gpt_get_cnt(GPT6, gpt_val);
+	}
+#endif
+
 /*Enable Tx IER*/
 	btif_tx_dma_ier_ctrl(p_dma_info, true);
+
+#ifdef CONFIG_AMAZON_A2DP_TS_DMA
+	if (audio_ts != UINT_MAX) {
+		btif_update_audio_ts(audio_ts, gpt_val);
+	}
+#endif
 
 	BTIF_TRC_FUNC();
 	return i_ret;

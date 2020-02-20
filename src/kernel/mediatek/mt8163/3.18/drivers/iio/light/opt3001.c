@@ -107,7 +107,7 @@ static int  opt3001_local_init(void);
 static int  opt3001_local_uninit(void);
 #endif
 
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 static struct pwm_spec_config pwms_config;
 struct pwm_duty_cycle_struct {
 	unsigned int dim_hduration_value;
@@ -209,7 +209,7 @@ static s32 calibrated_lux_at_0 = -1;
 /* Max Raw measurement */
 static s32 calibrated_lux_at_300 = -1;
 
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 static const char* evt_board_id = "0130001200130017";
 static const int evt_multiplier_nr = 10;
 static const int evt_multiplier_dr = 23;
@@ -225,7 +225,7 @@ static int num_full_samples;
 static struct opt3001 *opt3001_obj;
 #endif
 
-#if defined(CONFIG_ROOK) && defined(CONFIG_ALS_PWM_DEBUG)
+#if defined(CONFIG_abe123) && defined(CONFIG_ALS_PWM_DEBUG)
 static ssize_t dim_threshold_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf) {
@@ -386,7 +386,7 @@ static IIO_CONST_ATTR_INT_TIME_AVAIL("0.1 0.8");
 
 static struct attribute *opt3001_attributes[] = {
 	&iio_const_attr_integration_time_available.dev_attr.attr,
-#if defined(CONFIG_ROOK) && defined(CONFIG_ALS_PWM_DEBUG)
+#if defined(CONFIG_abe123) && defined(CONFIG_ALS_PWM_DEBUG)
 	&dev_attr_dim_hduration.attr,
 	&dev_attr_dim_lduration.attr,
 	&dev_attr_full_hduration.attr,
@@ -437,7 +437,7 @@ static int als_set_delay(u64 ns)
 static int als_open_report_data(int open)
 {
 	APS_LOG("Inside als_open_report_data\n");
-#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#if defined(CONFIG_abe123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) {
 		if (!open) {
 			pwms_config.PWM_MODE_FIFO_REGS.HDURATION =
@@ -634,7 +634,7 @@ static int als_get_data(int *value, int *status)
 	} else {
 		*value = val1;
 	}
-#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#if defined(CONFIG_abe123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) {
 		if (*value < pwm_duty_cycle_data.dim_threshold_value) {
 			num_dim_samples++;
@@ -1042,7 +1042,7 @@ void idme_set_alscal_calibrated_values(void)
 		return;
 	}
 
-#ifdef CONFIG_ROOK
+#ifdef CONFIG_abe123
 	if (strncmp(boardid_idme, evt_board_id, strlen(evt_board_id)) == 0) {
 		multiplier_nr = evt_multiplier_nr;
 		multiplier_dr = evt_multiplier_dr;
@@ -1330,7 +1330,7 @@ static int __init opt3001_init(void)
 	APS_LOG("%s: i2c_number=%d\n", __func__, hw->i2c_num);
 	alsps_driver_add(&opt3001_init_info);
 
-#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#if defined(CONFIG_abe123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) {
 		/* PWM settings for GPIO 88 */
 		pwm_duty_cycle_data.dim_hduration_value = 6330;

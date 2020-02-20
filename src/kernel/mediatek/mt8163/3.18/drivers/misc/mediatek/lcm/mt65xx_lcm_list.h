@@ -232,7 +232,7 @@ extern LCM_DRIVER cm_n070ice_dsi_vdo_mt8173_lcm_drv;
 extern LCM_DRIVER nt35595_fhd_dsi_cmd_truly_nt50358_extern_lcm_drv;
 extern LCM_DRIVER r69429_wqxga_dsi_vdo_lcm_drv;
 extern LCM_DRIVER nt35521_wxga_dsi_vdo_hh060ia_lcm_drv;
-extern LCM_DRIVER nt35521_wxga_dsi_vdo_giza_lcm_drv;
+extern LCM_DRIVER nt35521_wxga_dsi_vdo_abf123_lcm_drv;
 extern LCM_DRIVER nt35521_wxga_dsi_vdo_douglas_lcm_drv;
 extern LCM_DRIVER hx8379c_wvga_dsi_vdo_lcm_drv;
 

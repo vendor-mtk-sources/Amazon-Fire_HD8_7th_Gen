@@ -227,7 +227,6 @@ static signed int columb_before_sleep = 0x123456;
 
 /* battery info */
 #if defined(CONFIG_MTK_BATTERY_LIFETIME_DATA_SUPPORT)
-
 signed int gFG_battery_cycle = 0;
 signed int gFG_aging_factor = 100;
 signed int gFG_columb_sum = 0;
@@ -239,8 +238,14 @@ signed int gFG_max_current = 0;
 signed int gFG_min_current = 0;
 signed int gFG_max_temperature = -20;
 signed int gFG_min_temperature = 100;
-
 #endif				/* battery info */
+
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+#define CV_BATTERY_VOLTAGE_MIN     4096000
+#define CV_BATTERY_VOLTAGE_MAX     4352000
+signed int gFG_CV_Battery_Voltage = 0;
+signed int gFG_CV_Voltage_Reduction_Supported = 0;
+#endif
 
 /*extern char *saved_command_line;*/
 /* Temperature window size */
@@ -4521,6 +4526,520 @@ static DEVICE_ATTR(FG_Aging_Factor, 0664, show_FG_Aging_Factor, store_FG_Aging_F
 
 #endif
 
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+#define BATTERY_CVR_PROTO_PROFILE_COUNT             4
+#define BATTERY_CVR_ATL_PROFILE_COUNT               5
+#define BATTERY_CVR_DSY_PROFILE_COUNT               5
+#define BATTERY_CVR_Q_MAX_COUNT                     2
+#define BATTERY_CVR_CV_COUNT                        1
+
+#define BATTERY_PROFILE_INDEX_0                     0
+#define BATTERY_PROFILE_INDEX_10                    10
+#define BATTERY_PROFILE_INDEX_15                    15
+#define BATTERY_PROFILE_INDEX_20                    20
+#define BATTERY_PROFILE_INDEX_30                    30
+#define BATTERY_PROFILE_500CYCLE_INDEX_0            50
+#define BATTERY_PROFILE_500CYCLE_INDEX_10           510
+#define BATTERY_PROFILE_500CYCLE_INDEX_15           515
+#define BATTERY_PROFILE_500CYCLE_INDEX_20           520
+#define BATTERY_PROFILE_500CYCLE_INDEX_30           530
+
+
+static unsigned int profile_index;
+
+static int copy_profile_data(char *p_profile, const char *buffer, int count)
+{
+	if (p_profile == NULL) {
+		pr_err("%s, p_rofile is NULL\n", __func__);
+		return -EFAULT;
+	}
+
+	if (copy_from_user(p_profile, buffer, count)) {
+		pr_err("%s, copy from user fail\n", __func__);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int dump_battery_profile(BATTERY_PROFILE_STRUCT_P p_profile, int count)
+{
+	int i;
+
+	if (p_profile == NULL) {
+		pr_err("%s, p_rofile is NULL\n", __func__);
+		return -EFAULT;
+	}
+
+	/* Dumpt battery profile */
+	for (i = 0; i < count / (2 * sizeof(int)); i++) {
+		pr_debug("<DOD,Voltage> = <%d,%d>\r\n",
+				(p_profile + i)->percentage,
+				(p_profile + i)->voltage);
+	}
+
+	return 0;
+}
+
+static int dump_r_profile(R_PROFILE_STRUCT_P p_profile, int count)
+{
+	int i;
+
+	if (p_profile == NULL) {
+		pr_err("%s, p_rofile is NULL\n", __func__);
+		return -EFAULT;
+	}
+
+	/* Dumpt r-table profile */
+	for (i = 0; i < count / (2 * sizeof(int)); i++) {
+		pr_debug("<Rbat,VBAT> = <%d,%d>\r\n",
+				(p_profile + i)->resistance,
+				(p_profile + i)->voltage);
+	}
+
+	return 0;
+}
+
+static ssize_t copy_battery_profile(const char *buffer, int count)
+{
+	int ret;
+	BATTERY_PROFILE_STRUCT_P profile_p;
+
+	ret = count;
+	switch (profile_index) {
+	case BATTERY_PROFILE_INDEX_0:
+		profile_p = fgauge_get_profile(batt_meter_cust_data.temperature_t0);
+		if (copy_profile_data((char *)profile_p, buffer, count) != 0) {
+			pr_err("%s, copy profile_t0 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(profile_p, count);
+		break;
+	case BATTERY_PROFILE_INDEX_10:
+		profile_p = fgauge_get_profile(batt_meter_cust_data.temperature_t1);
+		if (copy_profile_data((char *)profile_p, buffer, count) != 0) {
+			pr_err("%s, copy profile_t1 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(profile_p, count);
+		break;
+	case BATTERY_PROFILE_INDEX_15:
+		profile_p = fgauge_get_profile(batt_meter_cust_data.temperature_t1_5);
+		if (copy_profile_data((char *)profile_p, buffer, count) != 0) {
+			pr_err("%s, copy profile_t1_5 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(profile_p, count);
+		break;
+	case BATTERY_PROFILE_INDEX_20:
+		profile_p = fgauge_get_profile(batt_meter_cust_data.temperature_t2);
+		if (copy_profile_data((char *)profile_p, buffer, count) != 0) {
+			pr_err("%s, copy profile_t2 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(profile_p, count);
+		break;
+	case BATTERY_PROFILE_INDEX_30:
+		profile_p = fgauge_get_profile(batt_meter_cust_data.temperature_t3);
+		if (copy_profile_data((char *)profile_p, buffer, count) != 0) {
+			pr_err("%s, copy profile_t3 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(profile_p, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_0:
+		if (copy_profile_data((char *)&battery_profile_t0_500cycle,
+						buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t0 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(battery_profile_t0_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_10:
+		if (copy_profile_data((char *)battery_profile_t1_500cycle,
+						buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t1 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(battery_profile_t1_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_15:
+		if (copy_profile_data((char *)battery_profile_t1_5_500cycle,
+						buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t1_5 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(battery_profile_t1_5_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_20:
+		if (copy_profile_data((char *)battery_profile_t2_500cycle,
+						buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t2 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(battery_profile_t2_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_30:
+		if (copy_profile_data((char *)battery_profile_t3_500cycle,
+						buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t3 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_battery_profile(battery_profile_t3_500cycle, count);
+		break;
+	default:
+		ret = 0;
+	}
+
+	pr_info("%s copy from user pass profile_index: %d and count %d with ret %d\n",
+			__func__, profile_index, count, ret);
+	return ret;
+}
+
+static ssize_t copy_r_profile(const char *buffer, int count)
+{
+	int ret;
+	R_PROFILE_STRUCT_P profile_p_r_table;
+
+	ret = count;
+	switch (profile_index) {
+	case BATTERY_PROFILE_INDEX_0:
+		profile_p_r_table = fgauge_get_profile_r_table(batt_meter_cust_data.temperature_t0);
+		if (copy_profile_data((char *)profile_p_r_table, buffer, count) != 0) {
+			pr_err("%s, copy profile_t0 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(profile_p_r_table, count);
+		break;
+	case BATTERY_PROFILE_INDEX_10:
+		profile_p_r_table = fgauge_get_profile_r_table(batt_meter_cust_data.temperature_t1);
+		if (copy_profile_data((char *)profile_p_r_table, buffer, count) != 0) {
+			pr_err("%s, copy profile_t1 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(profile_p_r_table, count);
+		break;
+	case BATTERY_PROFILE_INDEX_15:
+		profile_p_r_table = fgauge_get_profile_r_table(batt_meter_cust_data.temperature_t1_5);
+		if (copy_profile_data((char *)profile_p_r_table, buffer, count) != 0) {
+			pr_err("%s, copy profile_t1_5 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(profile_p_r_table, count);
+		break;
+	case BATTERY_PROFILE_INDEX_20:
+		profile_p_r_table = fgauge_get_profile_r_table(batt_meter_cust_data.temperature_t2);
+		if (copy_profile_data((char *)profile_p_r_table, buffer, count) != 0) {
+			pr_err("%s, copy profile_t2 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(profile_p_r_table, count);
+		break;
+	case BATTERY_PROFILE_INDEX_30:
+		profile_p_r_table = fgauge_get_profile_r_table(batt_meter_cust_data.temperature_t3);
+		if (copy_profile_data((char *)profile_p_r_table, buffer, count) != 0) {
+			pr_err("%s, copy profile_t3 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(profile_p_r_table, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_0:
+		if (copy_profile_data((char *)r_profile_t0_500cycle, buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t0 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(r_profile_t0_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_10:
+		if (copy_profile_data((char *)r_profile_t1_500cycle, buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t1 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(r_profile_t1_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_15:
+		if (copy_profile_data((char *)r_profile_t1_5_500cycle, buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t1_5 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(r_profile_t1_5_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_20:
+		if (copy_profile_data((char *)r_profile_t2_500cycle, buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t2 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(r_profile_t2_500cycle, count);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_30:
+		if (copy_profile_data((char *)r_profile_t3_500cycle, buffer, count) != 0) {
+			pr_err("%s, copy profile_500cycle_t3 fail\n", __func__);
+			ret = -EFAULT;
+		}
+		dump_r_profile(r_profile_t3_500cycle, count);
+		break;
+	default:
+		ret = 0;
+	}
+
+	pr_info("%s copy from user pass profile_index: %d and count %d with ret %d\n",
+			__func__, profile_index, count, ret);
+	return ret;
+
+}
+
+static ssize_t battery_cvr_battery_profile_index_write(struct file *file, const char *buffer, size_t count, loff_t *data)
+{
+	if (gFG_CV_Voltage_Reduction_Supported == 0) {
+		pr_err("%s, Not valid data return\n", __func__);
+		return -EFAULT;
+	}
+
+	if (copy_from_user(&profile_index, buffer, count)) {
+		pr_err("%s, Copy from user fail\n", __func__);
+		return -EFAULT;
+	}
+
+	pr_info("%s end with profile_index %d and count %d\n",
+			__func__, profile_index, (int)count);
+	return count;
+}
+
+static ssize_t battery_cvr_battery_profile_write(struct file *file, const char *buffer, size_t count, loff_t *data)
+{
+	if ((gFG_CV_Voltage_Reduction_Supported == 0)
+		|| (profile_index > BATTERY_PROFILE_500CYCLE_INDEX_30)) {
+		pr_err("%s, Not valid data return\n", __func__);
+		return -EFAULT;
+	}
+
+	if (copy_battery_profile(buffer, count) != count) {
+		pr_err("%s, Copy from user fail\n", __func__);
+		return -EFAULT;
+	}
+
+	return count;
+}
+
+static ssize_t battery_cvr_r_profile_write(struct file *file, const char *buffer, size_t count, loff_t *data)
+{
+	if ((gFG_CV_Voltage_Reduction_Supported == 0)
+		|| (profile_index > BATTERY_PROFILE_500CYCLE_INDEX_30)) {
+		pr_err("%s, Not valid data return\n", __func__);
+		return -EFAULT;
+	}
+
+	if (copy_r_profile(buffer, count) != count) {
+		pr_err("%s, Copy from user fail\n", __func__);
+		return -EFAULT;
+	}
+
+	return count;
+}
+
+static ssize_t battery_cvr_q_max_write(struct file *file, const char *buffer, size_t count, loff_t *data)
+{
+	int q_max[BATTERY_CVR_Q_MAX_COUNT];
+	int ret;
+
+	ret = count;
+	if ((gFG_CV_Voltage_Reduction_Supported == 0)
+		|| (count != (BATTERY_CVR_Q_MAX_COUNT * sizeof(int)))) {
+		pr_err("%s, Not valid data return\n", __func__);
+		return -EFAULT;
+	}
+
+	if (copy_from_user(q_max, buffer, count)) {
+		pr_err("%s, Copy from user fail\n", __func__);
+		return -EFAULT;
+	}
+
+	switch (profile_index) {
+	case BATTERY_PROFILE_INDEX_0:
+		batt_meter_cust_data.q_max_neg_10 = q_max[0];
+		batt_meter_cust_data.q_max_neg_10_h_current = q_max[1];
+		pr_debug("q_max_neg_10 = %d\r\n",
+			batt_meter_cust_data.q_max_neg_10);
+		pr_debug("q_max_neg_10_h_current = %d\r\n",
+			batt_meter_cust_data.q_max_neg_10_h_current);
+		break;
+	case BATTERY_PROFILE_INDEX_10:
+		batt_meter_cust_data.q_max_pos_0 = q_max[0];
+		batt_meter_cust_data.q_max_pos_0_h_current = q_max[1];
+		pr_debug("q_max_pos_0 = %d\r\n",
+			batt_meter_cust_data.q_max_pos_0);
+		pr_debug("q_max_pos_0_h_current = %d\r\n",
+			batt_meter_cust_data.q_max_pos_0_h_current);
+		break;
+	case BATTERY_PROFILE_INDEX_15:
+		batt_meter_cust_data.q_max_pos_10 = q_max[0];
+		batt_meter_cust_data.q_max_pos_10_h_current = q_max[1];
+		pr_debug("q_max_pos_10 = %d\r\n",
+			batt_meter_cust_data.q_max_pos_10);
+		pr_debug("q_max_pos_10_h_current = %d\r\n",
+			batt_meter_cust_data.q_max_pos_10_h_current);
+		break;
+	case BATTERY_PROFILE_INDEX_20:
+		batt_meter_cust_data.q_max_pos_25 = q_max[0];
+		batt_meter_cust_data.q_max_pos_25_h_current = q_max[1];
+		pr_debug("q_max_pos_25 = %d\r\n",
+			batt_meter_cust_data.q_max_pos_25);
+		pr_debug("q_max_pos_25_h_current = %d\r\n",
+			batt_meter_cust_data.q_max_pos_25_h_current);
+		break;
+	case BATTERY_PROFILE_INDEX_30:
+		batt_meter_cust_data.q_max_pos_50 = q_max[0];
+		batt_meter_cust_data.q_max_pos_50_h_current = q_max[1];
+		pr_debug("q_max_pos_50 = %d\r\n",
+			batt_meter_cust_data.q_max_pos_50);
+		pr_debug("q_max_pos_50_h_current = %d\r\n",
+			batt_meter_cust_data.q_max_pos_50_h_current);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_0:
+		q_max_t0_aging.Q_500_CYCLE = q_max[0];
+		q_max_t0_h_current_aging.Q_500_CYCLE = q_max[1];
+		pr_debug("q_max_neg_10_500cycle = %d\r\n",
+			q_max_t0_aging.Q_500_CYCLE);
+		pr_debug("q_max_neg_10_h_current_500cycle = %d\r\n",
+			q_max_t0_h_current_aging.Q_500_CYCLE);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_10:
+		q_max_t1_aging.Q_500_CYCLE = q_max[0];
+		q_max_t1_h_current_aging.Q_500_CYCLE = q_max[1];
+		pr_debug("q_max_pos_0_500cycle = %d\r\n",
+			q_max_t1_aging.Q_500_CYCLE);
+		pr_debug("q_max_pos_0_h_current_500cycle = %d\r\n",
+			q_max_t1_h_current_aging.Q_500_CYCLE);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_15:
+		q_max_t1_5_aging.Q_500_CYCLE = q_max[0];
+		q_max_t1_5_h_current_aging.Q_500_CYCLE = q_max[1];
+		pr_debug("q_max_pos_10_500cycle = %d\r\n",
+			q_max_t1_5_aging.Q_500_CYCLE);
+		pr_debug("q_max_pos_10_h_current_500cycle = %d\r\n",
+			q_max_t1_5_h_current_aging.Q_500_CYCLE);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_20:
+		q_max_t2_aging.Q_500_CYCLE = q_max[0];
+		q_max_t2_h_current_aging.Q_500_CYCLE = q_max[1];
+		pr_debug("q_max_pos_25_500cycle = %d\r\n",
+			q_max_t2_aging.Q_500_CYCLE);
+		pr_debug("q_max_pos_25_h_current_500cycle = %d\r\n",
+			q_max_t2_h_current_aging.Q_500_CYCLE);
+		break;
+	case BATTERY_PROFILE_500CYCLE_INDEX_30:
+		q_max_t3_aging.Q_500_CYCLE = q_max[0];
+		q_max_t3_h_current_aging.Q_500_CYCLE = q_max[1];
+		pr_debug("q_max_pos_50_500cycle = %d\r\n",
+			q_max_t3_aging.Q_500_CYCLE);
+		pr_debug("q_max_pos_50_h_current_500cycle = %d\r\n",
+			q_max_t3_h_current_aging.Q_500_CYCLE);
+		break;
+	default:
+		ret = 0;
+	}
+
+
+	pr_info("%s copy from user profile_index %d, count %d and ret %d\n",
+			__func__, profile_index, (int)count, ret);
+	return ret;
+}
+
+static const struct file_operations battery_cvr_battery_profile_index_proc_fops = {
+	.write = battery_cvr_battery_profile_index_write,
+};
+
+static const struct file_operations battery_cvr_battery_profile_proc_fops = {
+	.write = battery_cvr_battery_profile_write,
+};
+
+static const struct file_operations battery_cvr_r_profile_proc_fops = {
+	.write = battery_cvr_r_profile_write,
+};
+
+static const struct file_operations battery_cvr_q_max_proc_fops = {
+	.write = battery_cvr_q_max_write,
+};
+
+static int init_proc_battery_cvr(void)
+{
+	struct proc_dir_entry *battery_cvr_dir = NULL;
+
+	battery_cvr_dir = proc_mkdir("mtk_battery_cvr", NULL);
+
+	if (!battery_cvr_dir) {
+		pr_err("[%s]: mkdir /proc/mtk_battery_cvr failed\n", __func__);
+	} else {
+		proc_create("battery_cvr_battery_profile_index", S_IRUGO | S_IWUSR, battery_cvr_dir,
+					&battery_cvr_battery_profile_index_proc_fops);
+		pr_info("proc_create battery_profile_index_proc_fops\n");
+
+		proc_create("battery_cvr_battery_profile", S_IRUGO | S_IWUSR, battery_cvr_dir,
+					&battery_cvr_battery_profile_proc_fops);
+		pr_info("proc_create battery_profile_proc_fops\n");
+
+		proc_create("battery_cvr_r_profile", S_IRUGO | S_IWUSR, battery_cvr_dir,
+					&battery_cvr_r_profile_proc_fops);
+		pr_info("proc_create battery_r_profile_proc_fops\n");
+
+		proc_create("battery_cvr_q_max", S_IRUGO | S_IWUSR, battery_cvr_dir,
+						&battery_cvr_q_max_proc_fops);
+		pr_info("proc_create battery_q_max_proc_fops\n");
+	}
+
+	return 0;
+}
+
+static ssize_t show_battery_id(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	pr_debug("battery_id = %u\n", g_fg_battery_id);
+	return sprintf(buf, "%d\n", g_fg_battery_id);
+}
+
+static DEVICE_ATTR(battery_id, 0664, show_battery_id, NULL);
+
+static ssize_t show_FG_CV_Battery_Voltage(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	pr_debug("[FG] gFG_CV_Battery_Voltage  : %d\n", gFG_CV_Battery_Voltage);
+	return sprintf(buf, "%d\n", gFG_CV_Battery_Voltage);
+}
+
+static ssize_t store_FG_CV_Battery_Voltage(struct device *dev, struct device_attribute *attr,
+				     const char *buf, size_t size)
+{
+	int cv_voltage;
+	if (1 == sscanf(buf, "%d", &cv_voltage)) {
+		if ((cv_voltage <= CV_BATTERY_VOLTAGE_MAX) && (cv_voltage >= CV_BATTERY_VOLTAGE_MIN)
+				&& (gFG_CV_Battery_Voltage != cv_voltage)) {
+			pr_warn("[FG] update battery cv voltage: old(%d), new(%d)\n",
+				 gFG_CV_Battery_Voltage, cv_voltage);
+
+			gFG_CV_Battery_Voltage = cv_voltage;
+			init_jeita_cv_voltage_from_sysfs();
+			battery_meter_initial();
+		} else {
+			pr_warn("[FG] try to set CV Voltage (%d) out of range!\n", cv_voltage);
+		}
+	} else {
+		pr_warn("[FG] format error!\n");
+	}
+
+	return size;
+}
+
+static DEVICE_ATTR(FG_CV_Battery_Voltage, 0644, show_FG_CV_Battery_Voltage, store_FG_CV_Battery_Voltage);
+
+static ssize_t show_FG_CV_Voltage_Reduction_Supported(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	pr_debug("[FG] gFG_CV_Voltage_Reduction_Supported: %d\n", gFG_CV_Voltage_Reduction_Supported);
+	return sprintf(buf, "%d\n", gFG_CV_Voltage_Reduction_Supported);
+}
+
+static DEVICE_ATTR(FG_CV_Voltage_Reduction_Supported, 0644, show_FG_CV_Voltage_Reduction_Supported, NULL);
+
+#endif
+
+
 /* ============================================================ // */
 static ssize_t show_FG_Current(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -4794,6 +5313,10 @@ static int battery_meter_probe(struct platform_device *dev)
 	/* LOG System Set */
 	init_proc_log_fg();
 
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+	init_proc_battery_cvr();
+#endif
+
 	/* last_oam_run_time = rtc_read_hw_time(); */
 	get_monotonic_boottime(&last_oam_run_time);
 	/* Create File For FG UI DEBUG */
@@ -4821,6 +5344,12 @@ static int battery_meter_probe(struct platform_device *dev)
 	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_Min_Battery_Current);
 	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_Max_Battery_Temperature);
 	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_Min_Battery_Temperature);
+#endif
+
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+	ret_device_file = device_create_file(&(dev->dev), &dev_attr_battery_id);
+	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_CV_Battery_Voltage);
+	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_CV_Voltage_Reduction_Supported);
 #endif
 
 #if defined(CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT)

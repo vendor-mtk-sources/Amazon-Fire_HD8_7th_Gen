@@ -1082,6 +1082,13 @@ static void mmc_sd_detect(struct mmc_host *host)
 	 * Just check if our card has been removed.
 	 */
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
+#ifdef CONFIG_MMC_ERR_REMOVE
+	if (host->rest_remove_flags) {
+		err = 1;
+		goto remove_card;
+	}
+#endif
+
 	while(retries) {
 		err = mmc_send_status(host->card, NULL);
 		if (err) {
@@ -1099,6 +1106,9 @@ static void mmc_sd_detect(struct mmc_host *host)
 	err = _mmc_detect_card_removed(host);
 #endif
 
+#ifdef CONFIG_MMC_ERR_REMOVE
+remove_card:
+#endif
 	mmc_put_card(host->card);
 
 	if (err) {

@@ -214,6 +214,11 @@ extern signed int gFG_BATT_CAPACITY_aging;
 extern signed int gFG_BATT_CAPACITY;
 #endif
 
+#ifdef CONFIG_MTK_BATTERY_CVR_SUPPORT
+extern signed int gFG_CV_Battery_Voltage;
+extern signed int gFG_CV_Voltage_Reduction_Supported;
+#endif
+
 /* ============================================================ */
 /* External function */
 /* ============================================================ */

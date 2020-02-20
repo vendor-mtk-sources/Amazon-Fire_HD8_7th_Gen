@@ -915,8 +915,8 @@ LCM_DRIVER *lcm_driver_list[] = {
 	&nt35521_wxga_dsi_vdo_hh060ia_lcm_drv,
 #endif
 
-#if defined(NT35521_WXGA_DSI_VDO_GIZA)
-	&nt35521_wxga_dsi_vdo_giza_lcm_drv,
+#if defined(NT35521_WXGA_DSI_VDO_abf123)
+	&nt35521_wxga_dsi_vdo_abf123_lcm_drv,
 #endif
 
 #if defined(NT35521_WXGA_DSI_VDO_DOUGLAS)

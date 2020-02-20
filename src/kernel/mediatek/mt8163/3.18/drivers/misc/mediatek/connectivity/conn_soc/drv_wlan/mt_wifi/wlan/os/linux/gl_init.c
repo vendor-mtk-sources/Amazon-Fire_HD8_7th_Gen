@@ -702,10 +702,10 @@ int g_u4P2POnOffing = 0;
 #define IDME_OF_MAC_ADDR        "/idme/mac_addr"
 #define IDME_OF_WIFI_MFG        "/idme/wifi_mfg"
 #define IDME_OF_BOARD_ID	"/idme/board_id"
-#define BOARD_ID_GIZA_STR "0031"
+#define BOARD_ID_abf123_STR "0031"
 #define BOARD_ID_BISCUIT_STR "0110"
 #define BOARD_ID_COOKIE_STR "0110"
-#define BOARD_ID_RADAR_STR "0120"
+#define BOARD_ID_abd123_STR "0120"
 #define BOARD_ID_DOUGLAS_STR "0032"
 char idme_board_id[16];
 
@@ -1140,7 +1140,7 @@ static COUNTRY_POWER_TABLE asCountryPwrTbl[] = {
 		},
 };
 
-static COUNTRY_POWER_TABLE power_table_giza[] = {
+static COUNTRY_POWER_TABLE power_table_abf123[] = {
 		{
 			{'W', 'W',}, /*country code*/
 			{/*tx power*/
@@ -1314,7 +1314,7 @@ static COUNTRY_POWER_TABLE power_table_biscuit[] = {
 		},
 };
 
-static COUNTRY_POWER_TABLE power_table_radar[] = {
+static COUNTRY_POWER_TABLE power_table_abd123[] = {
 		{
 			{'W', 'W',}, /*country code*/
 			{/*tx power*/
@@ -1542,10 +1542,10 @@ static COUNTRY_POWER_TABLE power_table_douglas[] = {
 };
 
 struct board_id_power_table_map board_id_power_table_list[] = {
-	{BOARD_ID_GIZA_STR, power_table_giza, ARRAY_SIZE(power_table_giza)},
+	{BOARD_ID_abf123_STR, power_table_abf123, ARRAY_SIZE(power_table_abf123)},
 	{BOARD_ID_BISCUIT_STR, power_table_biscuit, ARRAY_SIZE(power_table_biscuit)},
 	{BOARD_ID_COOKIE_STR, power_table_biscuit, ARRAY_SIZE(power_table_biscuit)},
-	{BOARD_ID_RADAR_STR, power_table_radar, ARRAY_SIZE(power_table_radar)},
+	{BOARD_ID_abd123_STR, power_table_abd123, ARRAY_SIZE(power_table_abd123)},
 	{BOARD_ID_DOUGLAS_STR, power_table_douglas, ARRAY_SIZE(power_table_douglas)},
 };
 
@@ -3596,7 +3596,7 @@ static void wlanCopyIdmeWifiMfg(P_REG_INFO_T prRegInfo)
 	}
 
 	/* RSSI compensation */
-	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "giza", 4) == 0) {
+	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abf123", 4) == 0) {
 		prRegInfo->uc2GRssiCompensation = 4;
 		prRegInfo->uc5GRssiCompensation = 4;
 		prRegInfo->fgRssiCompensationValidbit = TRUE;
@@ -3834,7 +3834,7 @@ static INT_32 wlanProbe(PVOID pvData)
 
 			if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "biscuit", 7) == 0 ||
 				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "cookie", 6) == 0 ||
-				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) == 0) {
+				kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0) {
 				prRegInfo->fgEnArpFilter = FALSE;
 			} else {
 				prRegInfo->fgEnArpFilter = TRUE;
