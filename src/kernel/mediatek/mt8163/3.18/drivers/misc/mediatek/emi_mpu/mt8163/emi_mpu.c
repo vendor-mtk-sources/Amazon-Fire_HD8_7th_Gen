@@ -40,6 +40,8 @@
 #define MAX_EMI_MPU_STORE_CMD_LEN 128
 #define TIMEOUT 100
 #define AXI_VIO_MONITOR_TIME (1 * HZ)
+#define THROTTLE_TIMES 20
+static unsigned int throttle_times;
 
 static struct work_struct emi_mpu_work;
 static struct workqueue_struct *emi_mpu_workqueue;
@@ -249,7 +251,8 @@ static int __match_id(u32 axi_id, int tbl_idx, u32 port_ID)
 					pr_err("[EMI MPU ERROR] Invalidate master ID! lookup smi table failed!\n");
 					return 0;
 				}
-				pr_err("Violation master name is %s (%s).\n", mst_tbl[tbl_idx].name,
+				if (throttle_times < THROTTLE_TIMES)
+					pr_err("Violation master name is %s (%s).\n", mst_tbl[tbl_idx].name,
 						smi_larb2_port[smi_port]);
 			} else if (mm_larb == 0x3) {
 				if (smi_port >= ARRAY_SIZE(smi_larb3_port)) {
@@ -397,7 +400,8 @@ static irqreturn_t mpu_violation_irq(int irq, void *dev_id)
 	TZ_RESULT ret;
 
 
-	pr_err("[EMI MPU] Violation information from TA.\n");
+	if (throttle_times < THROTTLE_TIMES)
+		pr_err("[EMI MPU] Violation information from TA.\n");
 
 	ret = KREE_CreateSession(TZ_TA_EMI_UUID, &emi_session);
 	if (ret != TZ_RESULT_SUCCESS)
@@ -425,6 +429,8 @@ static irqreturn_t mpu_violation_irq(int irq, void *dev_id)
 	}
 
 
+	if (throttle_times++ > THROTTLE_TIMES)
+		goto skip_err;
 
 	/*TBD: print the abort region*/
 	pr_err("[EMI MPU] Debug info start ----------------------------------------\n");
@@ -452,6 +458,7 @@ static irqreturn_t mpu_violation_irq(int irq, void *dev_id)
 	}
 #endif
 
+skip_err:
 	vio_addr = dbg_t + emi_physical_offset;
 
 	return IRQ_HANDLED;

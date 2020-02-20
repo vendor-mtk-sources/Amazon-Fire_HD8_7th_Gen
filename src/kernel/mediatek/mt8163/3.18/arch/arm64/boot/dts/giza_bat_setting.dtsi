@@ -33,7 +33,7 @@
 
 	/* JEITA related setting */
 	mtk_jeita_standard_support=<1>;
-	cust_soc_jeita_sync_time=<30>;
+	cust_soc_jeita_sync_time=<60>;
 	jeita_temp_below_neg_10_cv_voltage=<4350000>; /* Unit: uV */
 	jeita_temp_neg_10_to_pos_0_cv_voltage=<4350000>; /* Unit: uV */
 	jeita_temp_pos_0_to_pos_10_cv_voltage=<4350000>; /* Unit: uV */

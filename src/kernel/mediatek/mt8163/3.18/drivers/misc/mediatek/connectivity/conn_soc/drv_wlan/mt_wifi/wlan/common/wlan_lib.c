@@ -4418,6 +4418,7 @@ ENUM_BAND_EDGE_CERT_T getBandEdgeCert(P_ADAPTER_T prAdapter)
 *         WLAN_STATUS_FAILURE
 */
 /*----------------------------------------------------------------------------*/
+extern WIFI_CFG_PARAM_STRUCT idme_wifi_mfg;
 WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T prRegInfo)
 {
 #if CFG_SUPPORT_RDD_TEST_MODE
@@ -4428,11 +4429,21 @@ WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T pr
 	ASSERT(prAdapter);
 
 	/* 1. Version Check */
-	kalGetConfigurationVersion(prAdapter->prGlueInfo,
-				   &(prAdapter->rVerInfo.u2Part1CfgOwnVersion),
-				   &(prAdapter->rVerInfo.u2Part1CfgPeerVersion),
-				   &(prAdapter->rVerInfo.u2Part2CfgOwnVersion),
-				   &(prAdapter->rVerInfo.u2Part2CfgPeerVersion));
+#ifdef CONFIG_IDME
+	if (prRegInfo->ManufactureSource == MANUFACTURE_IDME) {
+		prAdapter->rVerInfo.u2Part1CfgOwnVersion = idme_wifi_mfg.u2Part1OwnVersion;
+		prAdapter->rVerInfo.u2Part1CfgPeerVersion = idme_wifi_mfg.u2Part1PeerVersion;
+		prAdapter->rVerInfo.u2Part2CfgOwnVersion = idme_wifi_mfg.u2Part2OwnVersion;
+		prAdapter->rVerInfo.u2Part2CfgPeerVersion = idme_wifi_mfg.u2Part2PeerVersion;
+	} else
+#endif
+	{
+		kalGetConfigurationVersion(prAdapter->prGlueInfo,
+					   &(prAdapter->rVerInfo.u2Part1CfgOwnVersion),
+					   &(prAdapter->rVerInfo.u2Part1CfgPeerVersion),
+					   &(prAdapter->rVerInfo.u2Part2CfgOwnVersion),
+					   &(prAdapter->rVerInfo.u2Part2CfgPeerVersion));
+	}
 
 #if (CFG_SW_NVRAM_VERSION_CHECK == 1)
 	if (CFG_DRV_OWN_VERSION < prAdapter->rVerInfo.u2Part1CfgPeerVersion

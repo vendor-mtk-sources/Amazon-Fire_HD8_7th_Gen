@@ -41,13 +41,11 @@
 #include <linux/platform_device.h>
 #include <linux/hrtimer.h>
 #include <linux/uaccess.h>
-#include <asm/atomic.h>
-#include <asm/io.h>
+#include <linux/atomic.h>
+#include <linux/io.h>
 #include <asm/irq.h>
 #include <linux/irq.h>
-#include <asm/scatterlist.h>
 #include <mt-plat/dma.h>
-/* #include <mach/mt_clkmgr.h> */
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/syscore_ops.h>
@@ -1134,7 +1132,7 @@ static int mtk_uart_vfifo_delete(struct mtk_uart *uart)
 	for (idx = uart->nport * 2; idx < uart->nport * 2 + 2; idx++) {
 		vfifo = &mtk_uart_vfifo_port[idx];
 		if (vfifo->addr)
-			dma_free_coherent(NULL, vfifo->size, vfifo->addr, vfifo->dmahd);
+			dma_free_coherent(uart->port.dev, vfifo->size, vfifo->addr, vfifo->dmahd);
 		mtk_uart_vfifo_del_dbgbuf(vfifo);
 		MSG_RAW("[%2d] %p (%04d) ;", idx, vfifo->addr, vfifo->size);
 		vfifo->addr = NULL;
@@ -1192,7 +1190,8 @@ static struct mtk_uart_vfifo *mtk_uart_vfifo_alloc(struct mtk_uart *uart, UART_V
 
 	if (vfifo && vfifo->addr == NULL)
 		vfifo = NULL;
-	MSG(INFO, "alloc vfifo-%d[%d](%p)\n", uart->nport, vfifo->size, vfifo->addr);
+	if (vfifo)
+		MSG(INFO, "alloc vfifo-%d[%d](%p)\n", uart->nport, vfifo->size, vfifo->addr);
 
 	spin_unlock_irqrestore(&mtk_uart_vfifo_port_lock, flags);
 	return vfifo;
@@ -1249,50 +1248,58 @@ static enum hrtimer_restart mtk_uart_tx_vfifo_timeout(struct hrtimer *hrt)
 	return HRTIMER_NORESTART;
 }
 
-/*---------------------------------------------------------------------------*/
-static void mtk_uart_dma_vfifo_callback(void *data)
-{
-	struct mtk_uart_dma *dma = (struct mtk_uart_dma *)data;
-	struct mtk_uart *uart = dma->uart;
-
-	MSG(DMA, "%s VFIFO CB: %4d/%4d\n", dma->dir == DMA_TO_DEVICE ? "TX" : "RX",
-	    mtk_uart_vfifo_get_counts(dma->vfifo), dma->vfifo->size);
-
-	if (dma->dir == DMA_FROM_DEVICE) {
-		/*the data must be read before return from callback, otherwise, the interrupt
-		   will be triggered again and again */
-		mtk_uart_dma_vfifo_rx_tasklet((unsigned long)uart);
-		/* return; [ALPS00031975] */
-	}
-	tasklet_schedule(&dma->tasklet);
-}
 
 /*---------------------------------------------------------------------------*/
 /* static __tcmfunc irqreturn_t mtk_vfifo_irq_handler(int irq, void *dev_id) */
 static irqreturn_t mtk_vfifo_irq_handler(int irq, void *dev_id)
 {
-	struct mtk_uart_vfifo *vfifo;
+	struct mtk_uart_vfifo *vfifo = (struct mtk_uart_vfifo *)dev_id;
+	struct mtk_uart_dma *dma;
+	struct mtk_uart *uart;
+	unsigned long flags;
 
-	vfifo = (struct mtk_uart_vfifo *)dev_id;
+	spin_lock_irqsave(&vfifo->iolock, flags);
 
 	if (!vfifo) {
 		pr_err("mtk_vfifo_irq_handler: vfifo is NULL\n");
-		return IRQ_NONE;
+		return IRQ_HANDLED;
 	}
-	if (!vfifo->dma) {
+	dma = vfifo->dma;
+	if (!dma) {
 		pr_err("mtk_vfifo_irq_handler: dma is NULL\n");
-		return IRQ_NONE;
+		return IRQ_HANDLED;
 	}
+	uart = dma->uart;
 
-	/* Call call back function */
-	mtk_uart_dma_vfifo_callback(vfifo->dma);
+	MSG(ERR, "mtk_vfifo_irq_handler %s VFIFO CB: %4d/%4d\n",
+	    dma->dir == DMA_TO_DEVICE ? "TX" : "RX",
+	    mtk_uart_vfifo_get_counts(dma->vfifo), dma->vfifo->size);
 
 	/* Clear interrupt flag */
-	if (vfifo->type == UART_RX_VFIFO)
+	if (vfifo->type == UART_RX_VFIFO) {
 		mtk_uart_vfifo_clear_rx_intr(vfifo);
-	else
-		mtk_uart_vfifo_clear_tx_intr(vfifo);
 
+		/*the data must be read before return from callback, otherwise, the interrupt
+		 * will be triggered again and again [ALPS00031975]
+		 */
+		if (atomic_inc_return(&vfifo->entry) > 1) {
+			MSG(ERR, "rx tasklet_schedule!!\n");
+			tasklet_schedule(&vfifo->dma->tasklet);
+		} else {
+			if (dma->uart->read_allow(dma->uart))
+				mtk_uart_dma_vfifo_rx_tasklet_str((unsigned long)dma->uart);
+			else
+				MSG(ERR, "rx empty, return!!\n");
+		}
+		atomic_dec(&vfifo->entry);
+	} else {
+		mtk_uart_vfifo_clear_tx_intr(vfifo);
+		MSG(ERR, "tx tasklet_schedule!!\n");
+		tasklet_schedule(&dma->tasklet);
+	}
+	spin_unlock_irqrestore(&vfifo->iolock, flags);
+
+	MSG(ERR, "mtk_vfifo_irq_handler: end, dir=%d\n", vfifo->dma->dir);
 	return IRQ_HANDLED;
 }
 
@@ -1401,17 +1408,27 @@ static void mtk_uart_dma_free(struct mtk_uart *uart, struct mtk_uart_dma *dma)
 	if ((dma->mode == UART_RX_VFIFO_DMA || dma->mode == UART_TX_VFIFO_DMA) && (!dma->vfifo))
 		return;
 
+	MSG(ERR, "disable all dma INT!!! dma mode:%d,dir:%d\n", dma->mode, dma->dir);
+	if (dma->dir == DMA_FROM_DEVICE)
+		mtk_uart_vfifo_disable_rx_intr(uart);
+	else if (dma->dir == DMA_TO_DEVICE)
+		mtk_uart_vfifo_disable_tx_intr(uart);
+
 	if (dma->vfifo && !mtk_uart_vfifo_is_empty(dma->vfifo)) {
+		MSG(ERR, "wait for %s vfifo dma completed!!!\n", dma->dir == DMA_TO_DEVICE ? "TX" : "RX");
 		tasklet_schedule(&dma->tasklet);
-		MSG(DMA, "wait for %s vfifo dma completed!!!\n", dma->dir == DMA_TO_DEVICE ? "TX" : "RX");
 		wait_for_completion(&dma->done);
 	}
 	spin_lock_irqsave(&uart->port.lock, flags);
+	MSG(ERR, " %s start STOP dma !!!\n", dma->dir == DMA_TO_DEVICE ? "TX" : "RX");
 	mtk_uart_stop_dma(dma);
-	if (dma->vfifo && timer_pending(&dma->vfifo->timer))
-		del_timer_sync(&dma->vfifo->timer);
-	if (dma->vfifo && hrtimer_active(&dma->vfifo->flush))
-		hrtimer_cancel(&dma->vfifo->flush);
+
+	if (dma->mode == UART_TX_VFIFO_DMA) {
+		if (dma->vfifo && timer_pending(&dma->vfifo->timer))
+			del_timer_sync(&dma->vfifo->timer);
+		if (dma->vfifo && hrtimer_active(&dma->vfifo->flush))
+			hrtimer_cancel(&dma->vfifo->flush);
+	}
 	/* [ALPS00030487] tasklet_kill function may schedule, so release spin lock first,
 	 *                  after release, set spin lock again.
 	 */
@@ -1421,8 +1438,7 @@ static void mtk_uart_dma_free(struct mtk_uart *uart, struct mtk_uart_dma *dma)
 	mtk_uart_reset_dma(dma);
 	mtk_uart_vfifo_disable(uart, dma->vfifo);
 	mtk_uart_vfifo_free(uart, dma->vfifo);
-	MSG(INFO, "free %s dma completed!!!\n", dma->dir == DMA_TO_DEVICE ? "TX" : "RX");
-	memset(dma, 0, sizeof(struct mtk_uart_dma));
+	MSG(ERR, "free %s dma completed!!!\n", dma->dir == DMA_TO_DEVICE ? "TX" : "RX");
 	spin_unlock_irqrestore(&uart->port.lock, flags);
 
 }
@@ -1480,9 +1496,7 @@ static void mtk_uart_rx_chars(struct mtk_uart *uart)
 	int max_count = UART_FIFO_SIZE;
 	unsigned int data_byte, status;
 	unsigned int flag;
-	unsigned long flags;
 
-	spin_lock_irqsave(&port->lock, flags);
 	/* MSG_FUNC_ENTRY(); */
 	while (max_count-- > 0) {
 
@@ -1548,7 +1562,7 @@ static void mtk_uart_rx_chars(struct mtk_uart *uart)
 	}
 	tty_flip_buffer_push(TTY_FLIP_ARG(tty));
 	update_history_time(0, uart->nport);
-	spin_unlock_irqrestore(&port->lock, flags);
+
 	MSG(FUC, "%s (%2d)\n", __func__, UART_FIFO_SIZE - max_count - 1);
 #if defined(CONFIG_MTK_HDMI_SUPPORT)
 #ifdef MHL_UART_SHARE_PIN
@@ -1585,7 +1599,7 @@ static void mtk_uart_tx_chars(struct mtk_uart *uart)
 
 		if (!uart_circ_empty(xmit))
 			MSG(ERR, "\t\tstopped: empty: %d %d %d\n", uart_circ_empty(xmit), tty->stopped,
-			    tty->hw_stopped);
+			    port->hw_stopped);
 		mtk_uart_stop_tx(port);
 		return;
 	}
@@ -1621,28 +1635,10 @@ static void mtk_uart_tx_chars(struct mtk_uart *uart)
 }
 
 /*---------------------------------------------------------------------------*/
-static void mtk_uart_rx_handler(struct mtk_uart *uart, int intrs)
-{
-	if (uart->rx_mode == UART_NON_DMA) {
-		mtk_uart_rx_chars(uart);
-	} else if (uart->rx_mode == UART_RX_VFIFO_DMA) {
-#if defined(ENABLE_VFIFO)
-		mtk_uart_rx_pre_handler(uart, intrs);
-		mtk_uart_dma_vfifo_rx_tasklet((unsigned long)uart);
-#endif
-	}
-}
-
-/*---------------------------------------------------------------------------*/
 void mtk_uart_tx_handler(struct mtk_uart *uart)
 {
-	struct uart_port *port = &uart->port;
-	unsigned long flags;
-
 	if (uart->tx_mode == UART_NON_DMA) {
-		spin_lock_irqsave(&port->lock, flags);
 		mtk_uart_tx_chars(uart);
-		spin_unlock_irqrestore(&port->lock, flags);
 	} else if (uart->tx_mode == UART_TX_VFIFO_DMA) {
 		tasklet_schedule(&uart->dma_tx.tasklet);
 	}
@@ -1669,19 +1665,20 @@ static const char * const interrupt[] = { "Modem Status Chg", "Tx Buffer Empty",
 /* static __tcmfunc irqreturn_t mtk_uart_irq(int irq, void *dev_id) */
 static irqreturn_t mtk_uart_irq(int irq, void *dev_id)
 {
+	unsigned long flags;
 	unsigned int intrs, timeout = 0;
 	struct mtk_uart *uart = (struct mtk_uart *)dev_id;
+	struct uart_port *port = &uart->port;
 
 #ifndef CONFIG_FIQ_DEBUGGER
 #ifdef CONFIG_MT_PRINTK_UART_CONSOLE
-	unsigned long base;
-
-	base = uart->base;
+	unsigned long base = uart->base;
 	if ((uart == console_port) && (UART_READ32(UART_LSR) & 0x01))
 		printk_disable_uart = 0;
 #endif
 #endif
 
+	spin_lock_irqsave(&uart->port.lock, flags);
 	intrs = mtk_uart_get_interrupt(uart);
 
 #ifdef ENABLE_DEBUG
@@ -1690,16 +1687,25 @@ static irqreturn_t mtk_uart_irq(int irq, void *dev_id)
 
 		if (iir->NINT)
 			MSG(INT, "No interrupt (%s)\n", fifo[iir->FIFOE]);
-		else if (iir->ID < ARRAY_SIZE(interrupt))
-			MSG(INT, "%02x %s (%s)\n", iir->ID, interrupt[iir->ID], fifo[iir->FIFOE]);
-		else
+		else if (iir->ID < ARRAY_SIZE(interrupt)) {
+#ifndef CONFIG_FIQ_DEBUGGER
+#ifdef CONFIG_MT_PRINTK_UART_CONSOLE
+			MSG(INT, "IER:0x%x, IIR:0x%x ", UART_READ32(UART_IER),
+			UART_READ32(UART_IIR));
+#endif /* CONFIG_MT_PRINTK_UART_CONSOLE */
+#endif /* CONFIG_FIQ_DEBUGGER */
+			MSG(INT, "intrs:%d,%02x %s (%s)\n", intrs, iir->ID,
+			interrupt[iir->ID], fifo[iir->FIFOE]);
+		} else
 			MSG(INT, "%2x\n", iir->ID);
 	}
 #endif
 	intrs &= UART_IIR_INT_MASK;
 
-	if (intrs == UART_IIR_NO_INT_PENDING)
+	if (intrs == UART_IIR_NO_INT_PENDING) {
+		spin_unlock_irqrestore(&port->lock, flags);
 		return IRQ_HANDLED;
+	}
 
 	/* pr_debug("[UART%d] intrs:0x%x\n", uart->nport, intrs); */
 	if (intrs == UART_IIR_CTI)
@@ -1710,7 +1716,20 @@ static irqreturn_t mtk_uart_irq(int irq, void *dev_id)
 		mtk_uart_get_modem_status(uart);
 
 	mtk_uart_intr_last_check(uart, intrs);
-	mtk_uart_rx_handler(uart, intrs);
+
+	if (uart->rx_mode == UART_NON_DMA) {
+		mtk_uart_rx_chars(uart);
+		spin_unlock_irqrestore(&port->lock, flags);
+	} else if (uart->rx_mode == UART_RX_VFIFO_DMA) {
+		spin_unlock_irqrestore(&port->lock, flags);
+#if defined(ENABLE_VFIFO)
+		mtk_uart_rx_pre_handler(uart, intrs);
+		MSG(ERR, "do rx tasklet!!\n");
+		mtk_uart_dma_vfifo_rx_tasklet((unsigned long)uart);
+#endif
+	} else
+		spin_unlock_irqrestore(&port->lock, flags);
+
 	return IRQ_HANDLED;
 }
 
@@ -2085,7 +2104,7 @@ static void mtk_uart_set_termios(struct uart_port *port, struct ktermios *termio
 	mtk_uart_fifo_set_trig(uart, uart->tx_trig, uart->rx_trig);
 
 	/* setup hw flow control: only port 0 ~1 support hw rts/cts */
-	MSG(CFG, "c_lflag:%X, c_iflag:%X, c_oflag:%X, c_cflag:%X\n", termios->c_lflag, termios->c_iflag,
+	MSG(ERR, "c_lflag:%X, c_iflag:%X, c_oflag:%X, c_cflag:0x%X\n", termios->c_lflag, termios->c_iflag,
 	    termios->c_oflag, termios->c_cflag);
 	if (HW_FLOW_CTRL_PORT(uart) && (termios->c_cflag & CRTSCTS) && (!(termios->c_iflag & 0x80000000))) {
 		pr_debug("Hardware Flow Control\n");
@@ -2548,6 +2567,10 @@ static int mtk_uart_pm_restore_noirq(struct device *device)
 		pr_warn("[%s] uart (%p) or uart->setting (%p) is null!!\n", __func__, uart, uart->setting);
 		return 0;
 	}
+
+	/* enable interrupts */
+	mtk_uart_enable_intrs(uart, UART_IER_HW_NORMALINTS);
+
 	mtk_uart_fifo_set_trig(uart, uart->tx_trig, uart->rx_trig);
 #ifdef CONFIG_OF
 	irq_set_irq_type(uart->setting->irq_num, uart->setting->irq_flags);
@@ -2627,7 +2650,7 @@ static int mtk_uart_init_ports(void)
 #ifdef CONFIG_OF
 #if defined(ENABLE_VFIFO)
 		if (uart->setting->vff) {
-			if (i * 2 < sizeof(mtk_uart_vfifo_port) / sizeof(mtk_uart_vfifo_port[0])) {
+			if (i * 2 < ARRAY_SIZE(mtk_uart_vfifo_port)) {
 				for (idx = i * 2; idx < i * 2 + 2; idx++) {
 					vfifo = &mtk_uart_vfifo_port[idx];
 					vfifo->base = (apdma_uart0_base + 0x0080 * idx);
@@ -2878,7 +2901,6 @@ EXPORT_SYMBOL(request_uart_to_sleep);
 
 int request_uart_to_wakeup(void)
 {
-	/* printk(KERN_ERR "Request UART sleep\n"); */
 	u32 val1;
 	int i = 0;
 	int uart_idx = 0;

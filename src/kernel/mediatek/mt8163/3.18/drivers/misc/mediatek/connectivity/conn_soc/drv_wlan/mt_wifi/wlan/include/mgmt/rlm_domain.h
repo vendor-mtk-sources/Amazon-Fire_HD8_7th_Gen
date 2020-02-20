@@ -564,6 +564,8 @@ typedef struct _SUBBAND_CHANNEL_T {
 #define REGION_CODE_JP (((UINT_16) 'J' << 8) | (UINT_16) 'P')   /* JP */
 #define REGION_CODE_CE (((UINT_16) 'E' << 8) | (UINT_16) 'U')   /* EU */
 #define REGION_CODE_WW (((UINT_16) 'W' << 8) | (UINT_16) 'W')   /* WW */
+#define REGION_CODE_IN (((UINT_16) 'I' << 8) | (UINT_16) 'N')   /* IN */
+#define REGION_CODE_CA (((UINT_16) 'C' << 8) | (UINT_16) 'A')   /* IC */
 
 struct reg_mapping {
 	UINT_16 country_code;

@@ -559,6 +559,7 @@ typedef struct _REG_INFO_T {
 	UINT_32 u4ArSysParam2;
 	UINT_32 u4ArSysParam3;
 	UINT_32 fgDisRoaming;	/* 0:enable roaming 1:disable */
+	UINT_32 ManufactureSource; /* 1:nvram 0:idme */
 
 	/* NVRAM - MP Data -START- */
 	UINT_8 aucMacAddr[6];

@@ -1119,6 +1119,12 @@ typedef struct {
 
 } WIFI_VER_INFO_T, *P_WIFI_VER_INFO_T;
 
+/*Manufacture source*/
+typedef enum _ENUM_MANUSRC_T {
+	MANUFACTURE_IDME,
+	MANUFACTURE_NVRAM,
+} ENUM_MANUSRC_T, *P_ENUM_MANUSRC_T;
+
 #if CFG_ENABLE_WIFI_DIRECT
 /*
 * p2p function pointer structure

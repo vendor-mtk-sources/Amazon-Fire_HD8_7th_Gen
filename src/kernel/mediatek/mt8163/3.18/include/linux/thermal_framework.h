@@ -53,6 +53,7 @@ struct thermal_dev_ops {
  *           agents.
  * @node: The list node of the
  * @current_temp: The current temperature reported for the specific domain
+ * @vs: The virtual sensor to which thermal sensor links to.
  *
  */
 struct thermal_dev {
@@ -63,6 +64,7 @@ struct thermal_dev {
 	struct thermal_dev_params *tdp;
 	int current_temp;
 	long off_temp;
+	int vs;
 };
 /**
  * API to register a temperature sensor with a thermal zone

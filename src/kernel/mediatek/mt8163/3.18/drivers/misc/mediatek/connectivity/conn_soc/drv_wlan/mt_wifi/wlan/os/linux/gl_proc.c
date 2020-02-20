@@ -613,6 +613,8 @@ static ssize_t procDbgLevelWrite(struct file *file, const char *buffer, size_t c
 	kalMemSet(aucProcBuf, 0, u4CopySize);
 	if (u4CopySize > count)
 		u4CopySize = count;
+	else
+		u4CopySize = u4CopySize - 1;
 
 	if (copy_from_user(aucProcBuf, buffer, u4CopySize)) {
 		pr_err("error of copy from user\n");
@@ -925,6 +927,8 @@ static ssize_t procCountryWrite(struct file *file, const char __user *buffer,
 	kalMemSet(aucProcBuf, 0, u4CopySize);
 	if (u4CopySize > count)
 		u4CopySize = count;
+	else
+		u4CopySize = u4CopySize - 1;
 
 	if (copy_from_user(aucProcBuf, buffer, u4CopySize)) {
 		pr_err("error of copy from user\n");
@@ -997,12 +1001,15 @@ static ssize_t procRoamWrite(struct file *file, const char __user *buffer, size_
 	kalMemSet(aucProcBuf, 0, u4CopySize);
 	if (u4CopySize > count)
 		u4CopySize = count;
+	else
+		u4CopySize = u4CopySize - 1;
 
 	if (copy_from_user(aucProcBuf, buffer, u4CopySize)) {
 		pr_err("error of copy from user\n");
 		return -EFAULT;
 	}
 
+	aucProcBuf[u4CopySize] = '\0';
 	if (kalStrnCmp(aucProcBuf, "force_roam", 10) == 0)
 		rStatus = kalIoctl(g_prGlueInfo_proc, wlanoidSetForceRoam, NULL, 0,
 				   FALSE, FALSE, FALSE, FALSE, &u4BufLen);
@@ -1159,12 +1166,16 @@ static ssize_t antenna_query_write(struct file *file,
 
 	if (u4CopySize > count)
 		u4CopySize = count;
+	else
+		u4CopySize = u4CopySize - 1;
 
 	if (copy_from_user(aucProcBuf, buffer, u4CopySize)) {
 		pr_err("error of copy from user\n");
 		return -EFAULT;
 	}
 
+
+	aucProcBuf[u4CopySize] = '\0';
 	ant_sel = &(prAdapter->rWifiVar.ant_select_info);
 
 	if (kalStrnCmp(aucProcBuf, opt[0], strlen(opt[0])) == 0) {

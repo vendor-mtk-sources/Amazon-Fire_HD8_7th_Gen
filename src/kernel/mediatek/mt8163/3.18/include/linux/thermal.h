@@ -180,6 +180,7 @@ struct thermal_attr {
  * @polling_delay:	number of milliseconds to wait between polls when
  *			checking whether trip points have been crossed (0 for
  *			interrupt driven systems)
+ * @shutdown_wait:	number of milliseconds to wait before shutdown.
  * @temperature:	current temperature.  This is only for core code,
  *			drivers should use thermal_zone_get_temp() to get the
  *			current temperature
@@ -211,6 +212,7 @@ struct thermal_zone_device {
 	int trips;
 	int passive_delay;
 	int polling_delay;
+	int shutdown_wait;
 	int temperature;
 	int last_temperature;
 	int emul_temperature;

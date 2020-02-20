@@ -34,6 +34,7 @@ void mtk_uart_tx_vfifo_flush(struct mtk_uart *uart, int timeout);
 int mtk_uart_vfifo_get_counts(struct mtk_uart_vfifo *vfifo);
 void mtk_uart_dma_vfifo_tx_tasklet(unsigned long arg);
 void mtk_uart_dma_vfifo_rx_tasklet(unsigned long arg);
+void mtk_uart_dma_vfifo_rx_tasklet_str(unsigned long arg);
 int mtk_uart_vfifo_enable(struct mtk_uart *uart, struct mtk_uart_vfifo *vfifo);
 int mtk_uart_vfifo_disable(struct mtk_uart *uart, struct mtk_uart_vfifo *vfifo);
 void mtk_uart_vfifo_enable_tx_intr(struct mtk_uart *uart);

@@ -7785,7 +7785,7 @@ wlanoidSetNetworkAddress(IN P_ADAPTER_T prAdapter,
 				j++;
 
 				pucBuf = (PUINT_8) &prNetAddrIp->in_addr;
-				DBGLOG(OID, INFO,
+				DBGLOG(OID, TRACE,
 				       "prNetAddrIp->in_addr:%d:%d:%d:%d\n", pucBuf[0], pucBuf[1], pucBuf[2],
 					pucBuf[3]);
 			}
@@ -9863,6 +9863,22 @@ wlanoidUpdatePowerTable(IN P_ADAPTER_T prAdapter,
 	} else {
 		/*no special power table found*/
 		DBGLOG(INIT, INFO, "no updated power table found\n");
+	}
+
+	/*disable auto tx power for radar*/
+	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) == 0) {
+		CMD_SW_DBG_CTRL_T rCmdSwCtrl;
+
+		DBGLOG(INIT, INFO, "disable auto tx power\n");
+		rCmdSwCtrl.u4Id = 0xa0100003;
+		rCmdSwCtrl.u4Data = 0x0;
+		wlanSendSetQueryCmd(prAdapter,
+				    CMD_ID_SW_DBG_CTRL,
+				    TRUE,
+				    FALSE,
+				    FALSE, NULL, NULL,
+				    sizeof(CMD_SW_DBG_CTRL_T),
+				    (PUINT_8)&rCmdSwCtrl, NULL, 0);
 	}
 	return WLAN_STATUS_SUCCESS;
 }

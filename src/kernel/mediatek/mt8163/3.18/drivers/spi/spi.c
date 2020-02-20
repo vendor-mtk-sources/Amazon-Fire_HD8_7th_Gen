@@ -42,6 +42,7 @@
 #include <linux/kthread.h>
 #include <linux/ioport.h>
 #include <linux/acpi.h>
+#include <linux/cpumask.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/spi.h>
@@ -1003,6 +1004,10 @@ static int spi_init_queue(struct spi_master *master)
 {
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
+#ifdef CONFIG_SPI_AFFINITY
+	struct cpumask affinity_mask;
+#endif
+
 	INIT_LIST_HEAD(&master->queue);
 	spin_lock_init(&master->queue_lock);
 
@@ -1019,6 +1024,13 @@ static int spi_init_queue(struct spi_master *master)
 	}
 	init_kthread_work(&master->pump_messages, spi_pump_messages);
 
+#ifdef CONFIG_SPI_AFFINITY
+	cpumask_clear(&affinity_mask);
+	cpumask_set_cpu(1, &affinity_mask);
+	if (sched_setaffinity(master->kworker_task->pid, &affinity_mask) == -1) {
+		pr_err("%s: could not set CPU affinity.\n", __func__);
+	}
+#endif
 	/*
 	 * Master config will indicate if this controller should run the
 	 * message pump with high (realtime) priority to reduce the transfer

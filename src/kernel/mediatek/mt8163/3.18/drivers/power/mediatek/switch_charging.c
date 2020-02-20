@@ -935,6 +935,8 @@ static PMU_STATUS BAT_BatteryStatusFailAction(void)
 	}
 #endif
 
+	BMT_status.bat_full = false;
+	BMT_status.bat_in_recharging_state = false;
 	BMT_status.total_charging_time = 0;
 	BMT_status.PRE_charging_time = 0;
 	BMT_status.CC_charging_time = 0;

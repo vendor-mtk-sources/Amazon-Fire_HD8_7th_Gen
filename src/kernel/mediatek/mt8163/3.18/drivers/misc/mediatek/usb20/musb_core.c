@@ -107,6 +107,13 @@
 #include <linux/err.h>
 #endif
 
+#ifdef CONFIG_CMD_MODE_CHANGE
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+#include <asm/uaccess.h>
+/*#include <cust_gpio_usage.h>*/
+#endif
+
 #include "musb_core.h"
 #include "musbhsdma.h"
 #ifdef CONFIG_OF
@@ -2634,10 +2641,129 @@ static struct platform_driver musb_driver = {
 
 /*-------------------------------------------------------------------------*/
 
+
+#ifdef CONFIG_CMD_MODE_CHANGE
+
+extern void mt_usb_ext_iddig_int(void);
+
+static int musb_change_mode_show(struct seq_file *s, void *unused)
+{
+	printk("[USB]%s:%d active:%d host:%d suspend:%d force_mode:%d\n",
+		__FUNCTION__, __LINE__, mtk_musb->is_active, mtk_musb->is_host,
+		mtk_musb->is_suspended, mtk_musb->force_mode);
+
+	seq_printf(s, "Active:%d host:%d suspend:%d force:%d\n",
+		mtk_musb->is_active, mtk_musb->is_host,
+		mtk_musb->is_suspended, mtk_musb->force_mode);
+
+	return 0;
+}
+
+static ssize_t musb_change_mode_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	char                    buf[20];
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if ((mtk_musb->force_mode == USB_FORCE_HOST && !strncmp(buf, "host", 4)) ||
+		(mtk_musb->force_mode == USB_FORCE_DEVICE && !strncmp(buf, "device", 6))) {
+		printk("[USB]%s:%d already the mode:%s\n", __FUNCTION__, __LINE__, buf);
+		return count;
+	}
+
+	if (!strncmp(buf, "host", 4)) {
+		mtk_musb->force_mode = USB_FORCE_HOST;
+		printk("[USB]%s:%d disable VBUS and IDDIG EINT interrupt\n",
+			__FUNCTION__, __LINE__);
+		if (mtk_musb->is_active) {
+			if (mtk_musb->is_host) {/*from host mode*/
+				printk("[USB]%s:%d current is host mode.\n",
+					__FUNCTION__, __LINE__);
+				goto exit;
+			} else {
+				printk("[USB]%s:%d step: 1\n", __FUNCTION__, __LINE__);
+				#if 1
+				/*step1, goto idle mode*/
+				mt_usb_disconnect();
+				printk("[USB]%s:%d step: 2\n", __FUNCTION__, __LINE__);
+				/*step2, wait a while*/
+				msleep(5000);
+				printk("[USB]%s:%d step: 3\n", __FUNCTION__, __LINE__);
+				/*step3, change to host mode*/
+				#endif
+				mt_usb_ext_iddig_int();
+				printk("[USB]%s:%d step: done\n", __FUNCTION__, __LINE__);
+			}
+		} else {
+			/*directly change to host mode*/
+			mt_usb_ext_iddig_int();
+			printk("[USB]%s:%d step: done\n", __FUNCTION__, __LINE__);
+		}
+	} else if (!strncmp(buf, "device", 6)) {
+		mtk_musb->force_mode = USB_FORCE_DEVICE;
+		printk("[USB]%s:%d mode: 2\n", __FUNCTION__, __LINE__);
+		printk("[USB]%s:%d disable VBUS and IDDIG EINT interrupt\n",
+			__FUNCTION__, __LINE__);
+		if (mtk_musb->is_host) {
+			printk("[USB]%s:%d step: 1\n", __FUNCTION__, __LINE__);
+			printk("[USB]%s:%d disconnect vbus\n", __FUNCTION__, __LINE__);
+			msleep(500);
+			/*step1, stop host*/
+			mt_usb_ext_iddig_int();
+			printk("[USB]%s:%d step: 2\n", __FUNCTION__, __LINE__);
+			/*step2, wait a while*/
+			msleep(2000);
+			printk("[USB]%s:%d step: 3\n", __FUNCTION__, __LINE__);
+			/*step3, change to device mode*/
+			mt_usb_connect();
+			printk("[USB]%s:%d step: done\n", __FUNCTION__, __LINE__);
+		} else {
+			/*directly change to device mode*/
+			printk("[USB]%s:%d step: 1\n", __FUNCTION__, __LINE__);
+			mt_usb_connect();
+			printk("[USB]%s:%d step: done\n", __FUNCTION__, __LINE__);
+		}
+	}
+exit:
+	printk("[USB]%s:%d step: finish\n", __FUNCTION__, __LINE__);
+
+	return count;
+}
+
+
+static int musb_change_mode_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, musb_change_mode_show, inode->i_private);
+}
+
+static const struct file_operations musb_change_mode_fops = {
+	.open                   = musb_change_mode_open,
+	.write                  = musb_change_mode_write,
+	.read                   = seq_read,
+	.llseek                 = seq_lseek,
+	.release                = single_release,
+};
+
+static int proc_mchange_init(void)
+{
+	proc_create("mchange", 0, NULL, &musb_change_mode_fops);
+	return 0;
+}
+#endif
+
+
+
 static int __init musb_init(void)
 {
 	if (usb_disabled())
 		return 0;
+
+#ifdef CONFIG_CMD_MODE_CHANGE
+	printk("[USB] proc_mchange_init\n");
+	proc_mchange_init();
+#endif
 
 	pr_info("%s: version " MUSB_VERSION ", ?dma?, otg (peripheral+host)\n", musb_driver_name);
 	return platform_driver_register(&musb_driver);

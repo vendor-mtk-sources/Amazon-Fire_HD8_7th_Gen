@@ -138,6 +138,22 @@ struct thermal_dev_params *thermistor_dt_to_params(
         return params;
 }
 
+int thermistor_dt_to_vs(struct device *dev)
+{
+        struct device_node *node = dev->of_node;
+	int value = 0;
+
+	if (!node) {
+	    dev_err(dev, "Device node not available\n");
+	    return value;
+	}
+
+        of_property_read_u32(node, "virtual-sensor-id",
+                                        &value);
+
+	return value;
+
+}
 static int mtktsthermistor_probe(struct platform_device *pdev)
 {
 	struct tmp103_temp_sensor *tmp103;
@@ -159,6 +175,7 @@ static int mtktsthermistor_probe(struct platform_device *pdev)
                 tmp103->therm_fw->dev = tmp103->dev;
                 tmp103->therm_fw->dev_ops = &mtktsthermistor_sensor_fops;
                 tmp103->therm_fw->tdp = thermistor_dt_to_params(&pdev->dev);
+                tmp103->therm_fw->vs = thermistor_dt_to_vs(&pdev->dev);
 #ifdef CONFIG_TMP103_THERMAL
                 ret = thermal_dev_register(tmp103->therm_fw);
                 if (ret) {

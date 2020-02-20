@@ -292,10 +292,22 @@ static bool musb_is_host(void)
 	musb_platform_enable(mtk_musb);
 
 #ifdef ID_PIN_USE_EX_EINT
+#ifdef CONFIG_CMD_MODE_CHANGE
+	if (mtk_musb->force_mode == USB_FORCE_HOST) {
+		DBG(0, "is_host:%d\n", mtk_musb->is_host);
+		iddig_state = 0;
+	} else if (mtk_musb->force_mode == USB_FORCE_DEVICE) {
+		DBG(0, "is_host:%d\n", mtk_musb->is_host);
+		iddig_state = 1;
+	} else {
+		DBG(0, "error !!!!! is_host:%d\n", mtk_musb->is_host);
+	}
+#else
 #if defined(CONFIG_MTK_LEGACY)
 	iddig_state = mt_get_gpio_in(iddig_pin);
 #else
 	iddig_state = __gpio_get_value(iddig_pin);
+#endif
 #endif
 	DBG(0, "iddig_state = %d\n", iddig_state);
 #else
@@ -350,6 +362,11 @@ void musb_session_restart(struct musb *musb)
 
 void switch_int_to_device(struct musb *musb)
 {
+#ifdef CONFIG_CMD_MODE_CHANGE
+	DBG(0, "force mode:%d\n", mtk_musb->force_mode);
+	return;
+#endif
+
 #ifdef ID_PIN_USE_EX_EINT
 #if defined(CONFIG_MTK_LEGACY)
 	mt_eint_set_polarity(IDDIG_EINT_PIN, MT_EINT_POL_POS);
@@ -367,6 +384,11 @@ void switch_int_to_device(struct musb *musb)
 
 void switch_int_to_host(struct musb *musb)
 {
+#ifdef CONFIG_CMD_MODE_CHANGE
+	DBG(0, "force mode:%d\n", mtk_musb->force_mode);
+	return;
+#endif
+
 #ifdef ID_PIN_USE_EX_EINT
 #if defined(CONFIG_MTK_LEGACY)
 	mt_eint_set_polarity(IDDIG_EINT_PIN, MT_EINT_POL_NEG);
@@ -384,6 +406,11 @@ void switch_int_to_host(struct musb *musb)
 
 void switch_int_to_host_and_mask(struct musb *musb)
 {
+#ifdef CONFIG_CMD_MODE_CHANGE
+	DBG(0, "force mode:%d\n", mtk_musb->force_mode);
+	return;
+#endif
+
 #ifdef ID_PIN_USE_EX_EINT
 #if defined(CONFIG_MTK_LEGACY)
 	mt_eint_set_polarity(IDDIG_EINT_PIN, MT_EINT_POL_NEG);
@@ -416,12 +443,15 @@ static void musb_id_pin_work(struct work_struct *data)
 	#endif
 	DBG(0, "iddig_state = %d, last_iddig_state = %d\n",
 		iddig_state, last_iddig_state);
+	#ifdef CONFIG_CMD_MODE_CHANGE
+	#else
 	if (iddig_state != last_iddig_state) {
 		last_iddig_state = iddig_state;
 	} else {
 		enable_irq(usb_iddig_number);
 		return;
 	}
+	#endif
 	spin_lock_irqsave(&mtk_musb->lock, flags);
 	musb_generic_disable(mtk_musb);
 	spin_unlock_irqrestore(&mtk_musb->lock, flags);
@@ -441,7 +471,9 @@ static void musb_id_pin_work(struct work_struct *data)
 		/*setup fifo for host mode*/
 		ep_config_from_table_for_host(mtk_musb);
 		wake_lock(&mtk_musb->usb_lock);
+		#ifndef CONFIG_CMD_MODE_CHANGE
 		musb_platform_set_vbus(mtk_musb, 1);
+		#endif
 
 		/* for no VBUS sensing IP*/
 #if 1
@@ -489,7 +521,9 @@ static void musb_id_pin_work(struct work_struct *data)
 		musb_writeb(mtk_musb->mregs, MUSB_DEVCTL, 0);
 		if (wake_lock_active(&mtk_musb->usb_lock))
 			wake_unlock(&mtk_musb->usb_lock);
+	#ifndef CONFIG_CMD_MODE_CHANGE
 		musb_platform_set_vbus(mtk_musb, 0);
+	#endif
 
 	/* for no VBUS sensing IP */
 #if 1
@@ -526,7 +560,7 @@ out:
 
 
 /*static void mt_usb_ext_iddig_int(void)*/
-static irqreturn_t mt_usb_ext_iddig_int(int irq, void *dev_id)
+irqreturn_t mt_usb_ext_iddig_int(int irq, void *dev_id)
 {
 	if (!mtk_musb->is_ready) {
 		/* dealy 5 sec if usb function is not ready */

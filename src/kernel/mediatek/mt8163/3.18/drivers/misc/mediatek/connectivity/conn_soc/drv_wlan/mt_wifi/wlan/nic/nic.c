@@ -2360,14 +2360,18 @@ WLAN_STATUS nicEnterCtiaMode(IN P_ADAPTER_T prAdapter, BOOLEAN fgEnterCtia, BOOL
 
 		/* Enable auto tx power */
 		/*  */
-
-		rCmdSwCtrl.u4Id = 0xa0100003;
-		rCmdSwCtrl.u4Data = 0x1;
-		wlanSendSetQueryCmd(prAdapter,
-				    CMD_ID_SW_DBG_CTRL,
-				    TRUE,
-				    FALSE,
-				    FALSE, NULL, NULL, sizeof(CMD_SW_DBG_CTRL_T), (PUINT_8)&rCmdSwCtrl, NULL, 0);
+		if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) != 0) {
+			/*don't enable auto tx power for radar*/
+			rCmdSwCtrl.u4Id = 0xa0100003;
+			rCmdSwCtrl.u4Data = 0x1;
+			wlanSendSetQueryCmd(prAdapter,
+					    CMD_ID_SW_DBG_CTRL,
+					    TRUE,
+					    FALSE,
+					    FALSE, NULL, NULL,
+					    sizeof(CMD_SW_DBG_CTRL_T),
+					    (PUINT_8)&rCmdSwCtrl, NULL, 0);
+		}
 
 		/* 2. Keep at Fast PS */
 		{

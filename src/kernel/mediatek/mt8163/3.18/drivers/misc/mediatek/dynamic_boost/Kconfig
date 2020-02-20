@@ -19,4 +19,11 @@ config TOUCH_BOOST
 	  it will hotplug on 2 LITTLE cores and set max frequency. Touch boost is
 	  a one-time boost mechanism.
 
+config MTK_MIN_PERF_CORES
+	bool "Enable touch boost"
+	default n
+#	int "minimum online cores"
+#	default 2
+	help
+	  TBD
 endmenu

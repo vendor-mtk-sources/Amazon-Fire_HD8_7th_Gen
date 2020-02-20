@@ -6,6 +6,9 @@
 
 #include "mt_spm_internal.h"
 
+#if defined CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
+#include <mt-plat/mt_boot.h>
+#endif
 /**************************************
  * Config and Parameter
  **************************************/
@@ -168,9 +171,15 @@ void __spm_set_wakeup_event(const struct pwr_ctrl *pwrctrl)
 	else
 		val = pwrctrl->timer_val_cust;
 
-	spm_write(SPM_PCM_TIMER_VAL, val);
-	spm_write(SPM_PCM_CON1, spm_read(SPM_PCM_CON1) | CON1_CFG_KEY | CON1_PCM_TIMER_EN);
-
+#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT)
+		spm_write(SPM_PCM_CON1, spm_read(SPM_PCM_CON1) | CON1_CFG_KEY);
+	else
+#endif
+	{
+		spm_write(SPM_PCM_TIMER_VAL, val);
+		spm_write(SPM_PCM_CON1, spm_read(SPM_PCM_CON1) | CON1_CFG_KEY | CON1_PCM_TIMER_EN);
+	}
 	/* unmask AP wakeup source */
 	if (pwrctrl->wake_src_cust == 0)
 		mask = pwrctrl->wake_src;

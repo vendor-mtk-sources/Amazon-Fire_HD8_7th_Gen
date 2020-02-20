@@ -188,6 +188,16 @@ static int dboost_dvfs_hotplug_thread(void *ptr)
 			cores_to_set_l = 0;
 			max_freq = 0;
 			break;
+		case PRIO_THREE_LITTLES_MAX_FREQ:
+			cores_to_set_b = 0;
+			cores_to_set_l = 3;
+			max_freq = MAX_FREQUENCY;
+			break;
+		case PRIO_THREE_LITTLES:
+			cores_to_set_b = 0;
+			cores_to_set_l = 3;
+			max_freq = 0;
+			break;
 		case PRIO_ONE_BIG_ONE_LITTLE_MAX_FREQ:
 			cores_to_set_b = 1;
 			cores_to_set_l = 1;
@@ -428,15 +438,20 @@ static int __init dynamic_boost_init(void)
 	dboost.last_req_mode = PRIO_DEFAULT;
 	atomic_set(&dboost.event, 0);
 
+#ifdef CONFIG_MTK_MIN_PERF_CORES
 	for (i = 0; i < ARRAY_SIZE(dboost.state); ++i) {
 		INIT_DELAYED_WORK(&dboost.state[i].work, dboost_disable_work);
-#if 0 /* TODO: should 2 littles default always on? */
 		if (i == PRIO_TWO_LITTLES)
 			dboost.state[i].active = 1;
 		else
-#endif
 			dboost.state[i].active = 0;
 	}
+#else
+	for (i = 0; i < ARRAY_SIZE(dboost.state); ++i) {
+		INIT_DELAYED_WORK(&dboost.state[i].work, dboost_disable_work);
+		dboost.state[i].active = 0;
+	}
+#endif
 	init_waitqueue_head(&dboost.wq);
 
 	dboost.thread = kthread_run(dboost_dvfs_hotplug_thread, &dboost, "dynamic_boost");

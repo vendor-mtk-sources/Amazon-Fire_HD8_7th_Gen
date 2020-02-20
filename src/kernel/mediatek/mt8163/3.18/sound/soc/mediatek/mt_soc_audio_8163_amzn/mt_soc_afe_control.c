@@ -880,9 +880,6 @@ void EnableApll2(bool bEnable)
 			Afe_Set_Reg(AUDIO_CLK_AUDDIV_0, 0x2, 0x2);
 			/* apll2_ck_div0, 98.3030/4 = 24.576M */
 			Afe_Set_Reg(AUDIO_CLK_AUDDIV_0, 0x3 << 28, 0x7 << 28);
-#ifdef CONFIG_SND_I2S_MCLK
-			AudDrv_APLL22M_Clk_On();
-#endif
 			AudDrv_APLL24M_Clk_On();
 			/* apll2_div0_pdn power up */
 			Afe_Set_Reg(AUDIO_CLK_AUDDIV_0, 0x0, 0x2);
@@ -895,9 +892,6 @@ void EnableApll2(bool bEnable)
 	} else {
 		Aud_APLL_DIV_APLL2_cntr--;
 		if (Aud_APLL_DIV_APLL2_cntr == 0) {
-#ifdef CONFIG_SND_I2S_MCLK
-			AudDrv_APLL22M_Clk_Off();     /* to be removed later */
-#endif
 			AudDrv_APLL24M_Clk_Off();
 			/* apll2_div0_pdn power down */
 			Afe_Set_Reg(AUDIO_CLK_AUDDIV_0, 0x2, 0x2);
@@ -3335,7 +3329,7 @@ void Auddrv_DL1_Interrupt_Handler(void)
 
 	if (Afe_Block->u4DataRemained < Afe_consumed_bytes || Afe_Block->u4DataRemained <= 0
 	    || Afe_Block->u4DataRemained > Afe_Block->u4BufferSize)
-		pr_debug("%s underflow\n", __func__);
+		pr_err("%s underflow\n", __func__);
 	else {
 		PRINTK_AUD_DL1
 			("+%s normal ReadIdx:%x ,DataRemained:%x, WriteIdx:%x\n", __func__,

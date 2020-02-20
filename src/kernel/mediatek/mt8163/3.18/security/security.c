@@ -357,6 +357,15 @@ int security_dentry_init_security(struct dentry *dentry, int mode,
 }
 EXPORT_SYMBOL(security_dentry_init_security);
 
+int security_dentry_create_files_as(struct dentry *dentry, int mode,
+				    struct qstr *name,
+				    const struct cred *old, struct cred *new)
+{
+	return security_ops->dentry_create_files_as(dentry, mode,
+				name, old, new);
+}
+EXPORT_SYMBOL(security_dentry_create_files_as);
+
 int security_inode_init_security(struct inode *inode, struct inode *dir,
 				 const struct qstr *qstr,
 				 const initxattrs initxattrs, void *fs_data)
@@ -702,6 +711,18 @@ void security_inode_getsecid(const struct inode *inode, u32 *secid)
 {
 	security_ops->inode_getsecid(inode, secid);
 }
+
+int security_inode_copy_up(struct dentry *src, struct cred **new)
+{
+	return security_ops->inode_copy_up(src, new);
+}
+EXPORT_SYMBOL(security_inode_copy_up);
+
+int security_inode_copy_up_xattr(const char *name)
+{
+	return security_ops->inode_copy_up_xattr(name);
+}
+EXPORT_SYMBOL(security_inode_copy_up_xattr);
 
 int security_file_permission(struct file *file, int mask)
 {

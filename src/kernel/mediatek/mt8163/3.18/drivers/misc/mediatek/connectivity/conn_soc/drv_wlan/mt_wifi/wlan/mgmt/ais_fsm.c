@@ -1771,6 +1771,7 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 	UINT_8 ucChannel;
 	UINT_16 u2ScanIELen;
 	ENUM_AIS_STATE_T eOriPreState;
+	OS_SYSTIME rCurrentTime;
 
 	BOOLEAN fgIsTransition = (BOOLEAN) FALSE;
 
@@ -1780,6 +1781,7 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 	prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
 	prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
 	eOriPreState = prAisFsmInfo->ePreviousState;
+	GET_CURRENT_SYSTIME(&rCurrentTime);
 
 	do {
 
@@ -1971,6 +1973,21 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 					/* increase connection trial count for infrastructure connection */
 					if (prConnSettings->eOPMode == NET_TYPE_INFRA)
 						prAisFsmInfo->ucConnTrialCount++;
+
+					if (CHECK_FOR_TIMEOUT(rCurrentTime,
+							      prAisFsmInfo->rJoinReqTime,
+							      SEC_TO_SYSTIME(AIS_JOIN_TIMEOUT))) {
+						/* abort connection trial */
+						prAdapter->rWifiVar.rConnSettings.fgIsConnReqIssued = FALSE;
+
+						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+									     WLAN_STATUS_CONNECT_INDICATION,
+									     NULL, 0);
+
+						eNextState = AIS_STATE_IDLE;
+						fgIsTransition = TRUE;
+						break;
+					}
 					/* 4 <A> Try to SCAN */
 					if (prAisFsmInfo->fgTryScan) {
 						eNextState = AIS_STATE_LOOKING_FOR;
@@ -2209,7 +2226,7 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 			}
 
 			/* using default channel dwell time/timeout value */
-			prScanReqMsg->u2ProbeDelay = 0;
+			prScanReqMsg->u2ProbeDelay = 1;
 			prScanReqMsg->u2ChannelDwellTime = 0;
 
 #if CFG_SUPPORT_SCAN_CHANNEL_REQUEST
@@ -2817,6 +2834,22 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 					/* from AIS_BSS_INFO_T */
 					aisIndicationOfMediaStateToHost(prAdapter, PARAM_MEDIA_STATE_CONNECTED,
 									FALSE);
+
+					/*disable auto tx power for radar*/
+					if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "radar", 5) == 0) {
+						CMD_SW_DBG_CTRL_T rCmdSwCtrl;
+
+						DBGLOG(AIS, INFO, "Disable auto tx power for radar when connected\n");
+						rCmdSwCtrl.u4Id = 0xa0100003;
+						rCmdSwCtrl.u4Data = 0x0;
+						wlanSendSetQueryCmd(prAdapter,
+								    CMD_ID_SW_DBG_CTRL,
+								    TRUE,
+								    FALSE,
+								    FALSE, NULL, NULL,
+								    sizeof(CMD_SW_DBG_CTRL_T),
+								    (PUINT_8)&rCmdSwCtrl, NULL, 0);
+					}
 
 					/* add for ctia mode */
 					if (EQUAL_SSID

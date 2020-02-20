@@ -356,6 +356,14 @@ struct musb_context_registers {
 /*
  * struct musb - Driver instance data.
  */
+#ifdef CONFIG_CMD_MODE_CHANGE
+enum usb_force_mode {
+	USB_FORCE_IDLE = 0,
+	USB_FORCE_HOST = 1,
+	USB_FORCE_DEVICE = 2,
+};
+#endif
+
 struct musb {
 	struct semaphore musb_lock;
 	/* device lock */
@@ -521,6 +529,9 @@ struct musb {
 #if defined(CONFIG_USBIF_COMPLIANCE)
 	bool srp_drvvbus;
 	enum usb_otg_event otg_event;
+#endif
+#ifdef CONFIG_CMD_MODE_CHANGE
+	enum usb_force_mode force_mode; /*0:OTG mode 1:host mode 2:device mode 3:idle mode*/
 #endif
 };
 

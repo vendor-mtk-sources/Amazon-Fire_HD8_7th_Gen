@@ -28,6 +28,8 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
+#include <linux/string.h>
+
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -73,6 +75,8 @@
 
 #define OPT3001_INT_TIME_LONG		800000
 #define OPT3001_INT_TIME_SHORT		100000
+
+#define MAX_MEASURED_LUX	300
 
 /*
  * Time to wait for conversion result to be ready. The device datasheet
@@ -180,6 +184,19 @@ static const struct opt3001_scale opt3001_scales[] = {
 	},
 };
 
+static s32 calibrated_lux_at_0 = -1;
+
+/* Max Raw measurement */
+static s32 calibrated_lux_at_300 = -1;
+
+#ifdef CONFIG_ABC
+static const char* evt_board_id = "0130001200130017";
+static const int evt_multiplier_nr = 10;
+static const int evt_multiplier_dr = 23;
+#endif
+
+static int multiplier_nr = 1;
+static int multiplier_dr = 1;
 
 #ifdef CONFIG_MTK_SENSOR_SUPPORT
 static struct opt3001 *opt3001_obj;
@@ -270,9 +287,19 @@ static int als_set_delay(u64 ns)
 	return 0;
 }
 
+#ifdef CONFIG_LEDS_TRIGGER_DIM
+void __attribute__((weak)) led_dim_trigger_bright(void) {
+	return;
+}
+#endif
 static int als_open_report_data(int open)
 {
 	APS_LOG("Inside als_open_report_data\n");
+#ifdef CONFIG_LEDS_TRIGGER_DIM
+	if (!open) {
+		led_dim_trigger_bright();
+	}
+#endif
 	return 0;
 }
 
@@ -433,12 +460,20 @@ err:
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
+#ifdef CONFIG_LEDS_TRIGGER_DIM
+void __attribute__((weak)) led_dim_function(unsigned int alsdata) {
+	return;
+}
+#endif
+
 #ifdef CONFIG_MTK_SENSOR_SUPPORT
 static int als_get_data(int *value, int *status)
 {
 	int ret = 0;
 	int val1;
 	int val2;
+
+	int lux_val = 0;
 
 	if (!opt3001_obj) {
 		APS_ERR("opt3001_obj is NULL!\n");
@@ -449,7 +484,18 @@ static int als_get_data(int *value, int *status)
 	ret = opt3001_get_lux(opt3001_obj, &val1, &val2);
 	mutex_unlock(&opt3001_obj->lock);
 
-	*value = val1;
+	lux_val = val2/1000 + val1*1000;
+
+	if (calibrated_lux_at_300 > 0) {
+		long calibrated_val = 0;
+		calibrated_val = (lux_val * MAX_MEASURED_LUX * multiplier_nr) / (calibrated_lux_at_300 * multiplier_dr);
+		*value = (int)calibrated_val;
+	} else {
+		*value = val1;
+	}
+#ifdef CONFIG_LEDS_TRIGGER_DIM
+	led_dim_function(*value);
+#endif
 	*status = SENSOR_STATUS_ACCURACY_MEDIUM;
 	return 0;
 }
@@ -794,6 +840,98 @@ static int opt3001_configure(struct opt3001 *opt)
 	return 0;
 }
 
+#if CONFIG_IDME
+#define IDME_OF_ALSCAL 		"/idme/alscal"
+#define IDME_OF_BOARD_ID	"/idme/board_id"
+void idme_set_alscal_calibrated_values(void)
+{
+    struct device_node *ap = NULL;
+    char *alscal_idme = NULL;
+	char *boardid_idme = NULL;
+	char alscal_copy[20];
+	char *alscal = alscal_copy;
+	char *lux_at_0_str, *lux_at_300_str;
+	char *lux_at_300_str_integer = NULL;
+	char *lux_at_300_str_decimal = NULL;
+	int lux_at_300_integer = 0;
+	int lux_at_300_decimal = 0;
+	const char delimiters[] = "., ";
+
+	APS_LOG("fetching calibration values for ALSCAL\n");
+	ap = of_find_node_by_path(IDME_OF_ALSCAL);
+	if (ap)
+		alscal_idme = (char *)of_get_property(ap, "value", NULL);
+	else {
+		pr_err("of_find_node_by_path failed\n");
+		return;
+	}
+
+	ap = of_find_node_by_path(IDME_OF_BOARD_ID);
+	if (ap)
+		boardid_idme = (char *)of_get_property(ap, "value", NULL);
+	else {
+		pr_err("of_find_node_by_path for board_id failed\n");
+		return;
+	}
+
+#ifdef CONFIG_ABC
+	if (strncmp(boardid_idme, evt_board_id, strlen(evt_board_id)) == 0) {
+		multiplier_nr = evt_multiplier_nr;
+		multiplier_dr = evt_multiplier_dr;
+	}
+#endif
+
+
+	if (alscal_idme == NULL)
+		return;
+
+	strcpy(alscal, alscal_idme);
+
+	/* alscal is stored in the format alscal=00,06 or
+	 * alscal=00,06.23
+	 */
+	lux_at_0_str = strsep(&alscal, ", ");
+
+	if (alscal == NULL) {
+		return;
+	}
+
+	lux_at_300_str = strsep(&alscal, "");
+
+	lux_at_300_str_integer = strsep(&lux_at_300_str, delimiters);
+
+	if (lux_at_300_str != NULL)
+		lux_at_300_str_decimal = strsep(&lux_at_300_str, "");
+
+	if (kstrtos32(lux_at_300_str_integer, 16, &lux_at_300_integer) != 0) {
+		APS_ERR("Calibration data not found\n");
+		return;
+	}
+
+	if (lux_at_300_str_decimal != NULL) {
+		if (kstrtos32(lux_at_300_str_decimal, 10, &lux_at_300_decimal) != 0) {
+			APS_ERR("Calibration data not found\n");
+			return;
+		}
+	}
+
+	/* figuring out the nearest multiplier for the decimal part */
+	if (lux_at_300_decimal < 10)
+		lux_at_300_decimal *= 100;
+	else if (lux_at_300_decimal < 100)
+		lux_at_300_decimal *= 10;
+	else if (lux_at_300_decimal < 1000)
+		lux_at_300_decimal *= 1;
+
+	/* Multiply by 1000 to aid in fixed point division when
+	 * scaling the values */
+	calibrated_lux_at_300 = lux_at_300_integer * 1000 + lux_at_300_decimal;
+	calibrated_lux_at_0 *= 1000;
+
+	APS_LOG("Raw value at 300 lux is %d\n", calibrated_lux_at_300);
+}
+#endif
+
 static irqreturn_t opt3001_irq(int irq, void *_iio)
 {
 	struct iio_dev *iio = _iio;
@@ -1028,6 +1166,9 @@ static int __init opt3001_init(void)
 		APS_ERR("Add driver error\n");
 		return -1;
 	 }
+#endif
+#if CONFIG_IDME
+	idme_set_alscal_calibrated_values();
 #endif
 	return 0;
 }

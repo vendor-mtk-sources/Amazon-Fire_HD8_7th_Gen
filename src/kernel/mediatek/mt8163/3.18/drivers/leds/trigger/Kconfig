@@ -50,6 +50,22 @@ config LEDS_TRIGGER_HEARTBEAT
 	  load average.
 	  If unsure, say Y.
 
+config LEDS_TRIGGER_DIM
+	tristate "LED Dim Trigger"
+	depends on LEDS_TRIGGERS
+	help
+	  This allows LEDs brightness to be adjusted based on
+	  ALS values.
+	  If unsure, say Y.
+
+config LEDS_TRIGGER_DIM_DEBUG
+	tristate "LED Dim Trigger Debug"
+	depends on LEDS_TRIGGER_DIM
+	help
+	  This creates sys entries to debug adjusting leds based on
+	  ALS values.
+	  If unsure, say Y.
+
 config LEDS_TRIGGER_BACKLIGHT
 	tristate "LED backlight Trigger"
 	depends on LEDS_TRIGGERS

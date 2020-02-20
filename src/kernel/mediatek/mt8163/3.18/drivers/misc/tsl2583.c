@@ -114,13 +114,13 @@
  /*set the coefficients the TSL2584TSV equation will use*/
 #define TSL2584TSV_CH0_COFF	CH0_COFF_NO_GLASS
 #define TSL2584TSV_CH1_COFF	CH1_COFF_NO_GLASS
-#ifdef CONFIG_sbc123
+#ifdef CONFIG_ABC
 #define MILILUX_COFF 235
 #define CH1_COFF 295
 #else /* All other products */
 #define MILILUX_COFF 1000
 #define CH1_COFF 1190
-#endif /* CONFIG_sbc123 */
+#endif /* CONFIG_ABC */
 #define NOISE_THRESHOLD 6
 /*end TSL2584TSV lux equation defines*/
 
@@ -309,7 +309,7 @@ static int get_baseline(int *ch0_baseline, int *ch1_baseline)
 
 	/*
 	 * Calibration format is
-	 * ams_<expected lux>_0=<actual_lux><ch0_reading><ch1_reading> ..
+	 * ams_<expected lux>_0=<ch0_reading>,<actual_lux>,<ch1_reading> ..
 	 * expected lux for the baseline is 0, so search for ams_0_0
 	 */
 	ptr = strstr(alscal, "ams_0_0");
@@ -320,16 +320,23 @@ static int get_baseline(int *ch0_baseline, int *ch1_baseline)
 	}
 
 	/*
-	 * ch0_reading is after the first comma
+	 * ch0_reading is before the first comma
 	 * ch1_reading is after the second comma
 	 */
-	strsep(&ptr, ",");
+	strsep(&ptr, "=");
 	if (NULL == ptr) {
 		pr_err("ALSCAL: alscal format incorrect\n");
 		goto fail;
 	}
+
 	if (sscanf(ptr, "%d", ch0_baseline) != 1) {
-		pr_err("ALSCAL: unable to parse alscal idme string\n");
+		pr_err("ALSCAL: unable to parse ch0 baseline from idme string\n", ptr);
+		goto fail;
+	}
+
+	strsep(&ptr, ",");
+	if (NULL == ptr) {
+		pr_err("ALSCAL: alscal format incorrect\n");
 		goto fail;
 	}
 
@@ -340,7 +347,7 @@ static int get_baseline(int *ch0_baseline, int *ch1_baseline)
 	}
 
 	if (sscanf(ptr, "%d", ch1_baseline) != 1) {
-		pr_err("ALSCAL: unable to parse alscal idme string\n");
+		pr_err("ALSCAL: unable to parse ch1 baseline from idme string\n");
 		goto fail;
 	}
 
@@ -395,7 +402,7 @@ static int taos_get_lux(struct iio_dev *indio_dev, int *calculated_lux)
 	}
 	/* is data new & valid */
 	if (!(buf[0] & TSL258X_STA_ADC_INTR)) {
-		dev_err(&chip->client->dev, "taos_get_lux data not valid\n");
+		dev_dbg(&chip->client->dev, "taos_get_lux data not valid\n");
 		ret = chip->als_cur_info.lux; /* return LAST VALUE */
 		goto out_unlock;
 	}
@@ -1000,6 +1007,7 @@ static int parse_alscal_idme(int *coeff)
 	struct device_node *ap = NULL;
 	char *alscal_idme = NULL;
 	char *alscal = NULL;
+	int dummy;
 
 	ap = of_find_node_by_path(ALS_CAL_OF_PATH);
 	if (ap) {
@@ -1014,11 +1022,12 @@ static int parse_alscal_idme(int *coeff)
 	/* Move pointer to ams_400_0 */
 	strsep(&alscal, " ");
 	strsep(&alscal, " ");
-	if (sscanf(alscal, "ams_400_0=%d", coeff) != 1) {
-		pr_err("ALSCAL: unable to parse alscal idme string\n");
+	if (sscanf(alscal, "ams_400_0=%d,%d", &dummy, coeff) != 2) {
+		pr_err("ALSCAL: unable to parse alscal idme string\n", alscal);
 		return -1;
 	}
 
+	kfree(alscal);
 	return 0;
 }
 
@@ -1045,7 +1054,7 @@ static ssize_t taos_calibrated_lux_show(struct device *dev,
 	if (calibrated_lux < ALS_MIN_LUX)
 		calibrated_lux = ALS_MIN_LUX;
 
-	return sprintf(buf, "%d", calibrated_lux);
+	return sprintf(buf, "%d\n", calibrated_lux);
 }
 #endif
 static DEVICE_ATTR(power_state, S_IRUGO | S_IWUSR,

@@ -191,6 +191,7 @@ static int next_fp_factor = 1;
 
 
 static int g_max_temp = 50000;	/* default=50 deg */
+static int g_temp = 50000;
 
 
 static unsigned int interval = 1000;	/* mseconds, 0 : no auto polling */
@@ -1915,11 +1916,17 @@ Bank2 : SOC (TS_MCU4,TS_MCU2,TS_MCU3)(TS1, TS4, TS5)
 #endif
 
 	g_max_temp = curr_temp;
+	g_temp = curr_temp;
 
 	tscpu_dprintk("tscpu_get_temp, current temp =%d\n", curr_temp);
 	return ret;
 }
 
+int tscpu_get_cpu_current_temperature(void)
+{
+	return g_temp;
+}
+EXPORT_SYMBOL(tscpu_get_cpu_current_temperature);
 
 int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
 {

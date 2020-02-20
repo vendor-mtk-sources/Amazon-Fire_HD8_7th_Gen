@@ -110,6 +110,15 @@ config THERMAL_GOV_STEP_WISE
 	  Enable this to manage platform thermals using a simple linear
 	  governor.
 
+config THERMAL_GOV_TRIP_STEP_WISE
+	bool "Trip_step_wise thermal governor"
+	default n
+	help
+	  Enable this to manage platform thermals using a simple
+	  linear governor.
+	  This governor is triggered based on the trip points.
+	  This will be useful for platforms using the generic thermal interface
+
 config THERMAL_GOV_BANG_BANG
 	bool "Bang Bang thermal governor"
 	default n

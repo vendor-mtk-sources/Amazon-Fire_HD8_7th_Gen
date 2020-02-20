@@ -24,16 +24,33 @@ struct mtk_cooler_platform_data {
 	int levels[THERMAL_MAX_TRIPS];
 };
 
+#ifdef CONFIG_ABC
+struct cdev_t {
+	char type[THERMAL_NAME_LENGTH];
+	unsigned long upper;
+	unsigned long lower;
+};
+#endif
+
 struct trip_t {
 	unsigned long temp;
 	enum thermal_trip_type type;
 	unsigned long hyst;
+#ifdef CONFIG_ABC
+	struct cdev_t cdev[THERMAL_MAX_TRIPS];
+#endif
 };
 
 struct mtk_thermal_platform_data {
 	int num_trips;
 	enum thermal_device_mode mode;
 	int polling_delay;
+	int shutdown_wait;
+	/*
+	 * Add a list for sensor params. Note: therm_lock takes
+	 * care of list protection.
+	 */
+	struct list_head ts_list;
 	struct thermal_zone_params tzp;
 	struct trip_t trips[THERMAL_MAX_TRIPS];
 	int num_cdevs;
@@ -43,6 +60,12 @@ struct mtk_thermal_platform_data {
 struct mtk_thermal_platform_data_wrapper {
 	struct mtk_thermal_platform_data *data;
 	struct thermal_dev_params params;
+};
+
+struct alt_cpu_thermal_zone {
+	struct thermal_zone_device *tz;
+	struct work_struct therm_work;
+	struct mtk_thermal_platform_data *pdata;
 };
 
 #endif /* _MTK_THERMAL_H_ */

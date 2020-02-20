@@ -15,6 +15,13 @@ config AMAZON_KLOG_CONSOLE
 	---help---
 	  provide the kernel log console which will rewrite the kernel message to Android Logger buffer.
 
+config AMAZON_KLOG_CONSOLE_TRYLOCK
+	bool "Amazon Kernel Log Console"
+	depends on AMAZON_KLOG_CONSOLE
+	default n
+	---help---
+	  try to get the mutex before we write outthe current payload.
+
 config AMAZON_LOGD
     bool "Amazon Logd"
     depends on ANDROID_LOGGER
@@ -58,10 +65,18 @@ config rbc123
 	help
 	isolate amazon rbc123 changes for MTK Platform
 
-config sbc123
-	bool "sbc123 MTK platform project"
+config ABC
+	bool "ABC MTK platform project"
 	help
-	isolate Amazon sbc123 changes for MTK Platform
+	isolate Amazon ABC changes for MTK Platform
+
+config AMAZON_LL_LOG
+        bool "Low Level Log Support"
+        depends on PROC_FS
+        default n
+        help
+          Cache the log of LK and Preloader at /proc/pllk.
+
 
 endif # if AMAZON
 

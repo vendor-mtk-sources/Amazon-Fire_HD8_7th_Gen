@@ -39,6 +39,10 @@
 #include <linux/pm_runtime.h>
 #endif
 
+#include <linux/notifier.h>
+#include <linux/fb.h>
+
+
 
 #ifdef CMDQ_OF_SUPPORT
 /**
@@ -55,6 +59,8 @@ static const struct of_device_id cmdq_of_ids[] = {
 #endif
 
 #define CMDQ_MAX_DUMP_REG_COUNT (2048)
+#define CMDQ_MAX_COMMAND_SIZE		(0x10000)
+#define CMDQ_MAX_WRITE_ADDR_COUNT	(PAGE_SIZE / sizeof(u32))
 
 static dev_t gCmdqDevNo;
 static struct cdev *gCmdqCDev;
@@ -269,8 +275,10 @@ static void cmdq_driver_process_read_address_request(struct cmdqReadAddressStruc
 
 	do {
 		if (NULL == req_user ||
-		    0 == req_user->count || NULL == CMDQ_U32_PTR(req_user->values)
-		    || NULL == CMDQ_U32_PTR(req_user->dmaAddresses)) {
+		    0 == req_user->count ||
+			req_user->count > CMDQ_MAX_DUMP_REG_COUNT ||
+			NULL == CMDQ_U32_PTR(req_user->values) ||
+		    NULL == CMDQ_U32_PTR(req_user->dmaAddresses)) {
 			CMDQ_ERR("[READ_PA] invalid req_user\n");
 			break;
 		}
@@ -528,7 +536,12 @@ static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long para
 		break;
 	case CMDQ_IOCTL_EXEC_COMMAND:
 		if (copy_from_user(&command, (void *)param, sizeof(struct cmdqCommandStruct)))
-			return -EFAULT;
+			return -EINVAL;
+
+		if (command.regRequest.count > CMDQ_MAX_DUMP_REG_COUNT ||
+			!command.blockSize ||
+			command.blockSize > CMDQ_MAX_COMMAND_SIZE)
+			return -EINVAL;
 
 		if (cmdqCoreIsEarlySuspended() && (CMDQ_SCENARIO_USER_MDP == command.scenario))
 			return -EFAULT;
@@ -554,7 +567,10 @@ static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long para
 		break;
 	case CMDQ_IOCTL_ASYNC_JOB_EXEC:
 		if (copy_from_user(&job, (void *)param, sizeof(struct cmdqJobStruct)))
-			return -EFAULT;
+			return -EINVAL;
+
+		if (job.command.blockSize > CMDQ_MAX_COMMAND_SIZE)
+			return -EINVAL;
 
 		if (cmdqCoreIsEarlySuspended() && (CMDQ_SCENARIO_USER_MDP == job.command.scenario)) {
 			CMDQ_ERR("CMDQ_IOCTL_ASYNC_JOB_EXEC suspended, return\n");
@@ -627,6 +643,8 @@ static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long para
 			return -EFAULT;
 		}
 		pTask = (struct TaskStruct *)(unsigned long)jobResult.hJob;
+		if (pTask->regCount > CMDQ_MAX_DUMP_REG_COUNT)
+			return -EINVAL;
 
 		/* utility service, fill the engine flag. */
 		/* this is required by MDP. */
@@ -717,6 +735,10 @@ static long cmdq_ioctl(struct file *pFile, unsigned int code, unsigned long para
 				return -EFAULT;
 			}
 
+			if (addrReq.count == 0) {
+				CMDQ_ERR("invalide allocate buffer count\n");
+				return -EFAULT;
+			}
 			status = cmdqCoreAllocWriteAddress(addrReq.count, &paStart);
 			if (0 != status) {
 				CMDQ_ERR
@@ -1141,6 +1163,31 @@ static struct early_suspend cmdq_early_suspend_handler = {
 	.resume = cmdq_lateresume,
 };
 #endif
+
+static int cmdq_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int blank;
+
+	if (event != FB_EVENT_BLANK)
+		return 0;
+
+	blank = *(int *)evdata->data;
+	switch (blank) {
+	case FB_BLANK_POWERDOWN:
+		cmdqCoreEarlySuspend();
+		break;
+	case FB_BLANK_UNBLANK:
+	case FB_BLANK_NORMAL:
+		cmdqCoreLateResume();
+		break;
+	}
+	return 0;
+}
+
+
+static struct notifier_block cmdq_fb_notifier;
+
 static int __init cmdq_init(void)
 {
 	int status;
@@ -1163,6 +1210,14 @@ static int __init cmdq_init(void)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&cmdq_early_suspend_handler);
 #endif
+
+	cmdq_fb_notifier.notifier_call = cmdq_fb_notifier_callback;
+	status = fb_register_client(&cmdq_fb_notifier);
+	if (0 != status) {
+		CMDQ_ERR("register fb notifier error:%d\n", status);
+		return -ENODEV;
+	}
+
 
 	status = platform_driver_register(&gCmdqDriver);
 	if (0 != status) {

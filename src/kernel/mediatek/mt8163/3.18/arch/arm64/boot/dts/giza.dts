@@ -22,6 +22,13 @@
 		reg = <0 0x40000000 0 0x20000000>;
 	};
 
+	reserved-memory {
+		ll_log_reserved_memory: ll_log-reserved-memory@46600000 {
+			compatible = "amazon,ll_log-reserved-memory";
+			reg = <0 0x44600000 0 0x20000>;
+		};
+	};
+
 	/* Accel Sensor */
 	cust_gsensor@0 {
 		compatible = "mediatek,lsm6ds3";
@@ -1085,6 +1092,7 @@
 			compatible = "mediatek,mt6323-pmic";
 			interrupt-parent = <&pio>;
 			interrupts = <24 IRQ_TYPE_LEVEL_HIGH>;
+			log-dump-wait-time = <6000>;
 		};
 
 		regulators {

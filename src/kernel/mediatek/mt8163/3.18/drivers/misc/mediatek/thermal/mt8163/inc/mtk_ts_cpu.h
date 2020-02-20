@@ -37,4 +37,6 @@ extern bool gFG_Is_Charging;
 #endif
 extern unsigned int mt_gpufreq_get_cur_freq(void);
 
+extern int tscpu_get_cpu_current_temperature(void);
+
 #endif				/* __MTK_TS_CPU_H__ */

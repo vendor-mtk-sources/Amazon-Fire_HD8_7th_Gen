@@ -214,7 +214,12 @@ int hps_cpu_init(void)
 	}
 
 	/* init bound in hps_ctxt */
+#ifdef CONFIG_MTK_MIN_PERF_CORES
+	hps_ctxt.little_num_base_perf_serv = 2;
+#else
 	hps_ctxt.little_num_base_perf_serv = 1;
+#endif
+
 	hps_ctxt.little_num_limit_thermal =
 		cpumask_weight(&hps_ctxt.little_cpumask);
 	hps_ctxt.little_num_limit_low_battery =

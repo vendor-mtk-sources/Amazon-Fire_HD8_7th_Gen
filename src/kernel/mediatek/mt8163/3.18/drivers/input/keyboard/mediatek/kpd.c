@@ -21,6 +21,10 @@
 #include <linux/of_irq.h>
 #include <linux/clk.h>
 
+#ifdef CONFIG_AMZ_PRIV
+#include <amz_priv.h>
+#endif
+
 #define KPD_NAME	"mtk-kpd"
 #ifndef CONFIG_KPD_VOLUME_KEY_SWAP
 #define MTK_KP_WAKESOURCE	/* this is for auto set wake up source */
@@ -43,6 +47,12 @@ static struct wake_lock pwrkey_lock;
 static bool kpd_swap_vol_key = true;
 static u32 kpd_swap_up_code, kpd_swap_down_code;
 #endif
+
+#ifdef CONFIG_AMZ_PRIV
+extern struct priv_work_data *pw_data;
+static struct workqueue_struct *priv_workq;
+#endif
+
 /***********************************/
 
 /* for slide QWERTY */
@@ -96,6 +106,61 @@ static struct platform_driver kpd_pdrv = {
 		   .of_match_table = kpd_of_match,
 		   },
 };
+
+#ifdef CONFIG_AMZ_PRIV
+struct workqueue_struct *amz_priv_get_workq(void)
+{
+       return priv_workq;
+}
+
+void handle_privacy_button_pressed(unsigned long pressed)
+{
+	unsigned int delay;
+	int event_handled = 0;
+
+	if (pw_data && priv_workq && !pressed && pw_data->cur_priv) {
+		/* exit priv mode right away */
+		pr_debug("%s:%u: exit priv mode now\n", __func__, __LINE__);
+		if (amz_priv_trigger(0)) {
+			pr_err("%s:%u exit priv failed\n", __func__, __LINE__);
+		} else {
+			pr_debug("%s:%d:\n", __func__, __LINE__);
+			event_handled = 1;
+		}
+	}
+
+	/*
+	* This is the case when a quick button press
+	* in succession triggers a work item resulting
+	* in queuing another work item while current timer
+	* is ticking.
+	*
+	* !cur_priv && cur_timer_on => two events happened in
+	* very quick succession. If we were not in privacy prior
+	* to the two quick events then we should not queue any
+	* events for later either. To achieve this we will indicate
+	* this event was handled already. This should be done only when
+	* the button has been released (since priv is triggered on release)
+	*/
+	if (pw_data && !pw_data->cur_priv && pw_data->cur_timer_on
+	    && !pressed) {
+		pr_debug("%s: quick evts, flushing\n", __func__);
+		FLUSH_PRIV_WORKQ();
+		event_handled = 1;
+	}
+
+	if ((pw_data && priv_workq && !pressed) && (!pw_data->cur_priv)
+		       && !event_handled) {
+		pr_debug("%s:%d: queuing work\n", __func__, __LINE__);
+		/*
+		 * queue work to start priv mode in max time
+		 */
+		delay = 3 * HZ / 10;
+		queue_delayed_work(priv_workq, &pw_data->dwork, delay);
+		amz_priv_timer_sysfs(1);
+	}
+}
+#endif
 
 #ifdef CONFIG_KPD_VOLUME_KEY_SWAP
 bool get_kpd_swap_vol_key(void)
@@ -328,6 +393,14 @@ static void kpd_aee_handler(u32 keycode, u16 pressed)
 	}
 }
 
+#ifdef CONFIG_MTK_KEYRESET
+bool mtk_volume_key_pressed(void)
+{
+	return ((aee_pressed_keys & ((1 << AEE_VOLUMEUP_BIT) | (1 << AEE_VOLUMEDOWN_BIT ))) > 0);
+}
+EXPORT_SYMBOL(mtk_volume_key_pressed);
+#endif
+
 static enum hrtimer_restart aee_timer_func(struct hrtimer *timer)
 {
 	/* kpd_info("kpd: vol up+vol down AEE manual dump!\n"); */
@@ -335,9 +408,6 @@ static enum hrtimer_restart aee_timer_func(struct hrtimer *timer)
 	/*ZH CHEN*/
 	/*aee_trigger_kdb();*/
 
-#ifdef CONFIG_MTK_KEYRESET
-	panic("Keyreset was triggered");
-#endif
 	return HRTIMER_NORESTART;
 }
 
@@ -348,9 +418,6 @@ static enum hrtimer_restart aee_timer_5s_func(struct hrtimer *timer)
 	/* kpd_info("kpd: vol up+vol down AEE manual dump timer 5s !\n"); */
 	flags_5s = true;
 
-#ifdef CONFIG_MTK_KEYRESET
-	panic("Keyreset was triggered");
-#endif
 	return HRTIMER_NORESTART;
 }
 #endif
@@ -406,6 +473,9 @@ void kpd_pwrkey_pmic_handler(unsigned long pressed)
 		kpd_print("KPD input device not ready\n");
 		return;
 	}
+#ifdef CONFIG_AMZ_PRIV
+       handle_privacy_button_pressed(pressed);
+#endif
 	kpd_pmic_pwrkey_hal(pressed);
 
 	if (pressed) /* keep the lock while the button in held pushed */
@@ -848,6 +918,23 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	struct clk *kpd_clk = NULL;
 
 	kpd_info("Keypad probe start!!!\n");
+#ifdef CONFIG_AMZ_PRIV
+	amz_priv_kickoff(&pdev->dev);
+	if (pw_data) {
+		priv_workq = alloc_workqueue("priv_workq", WQ_UNBOUND, 1);
+		if (priv_workq) {
+			INIT_DELAYED_WORK(&pw_data->dwork,
+					  start_privacy_timer_func);
+			pr_debug("%s:%u created priv_workq..\n",
+				 __func__, __LINE__);
+		} else {
+			pr_err("%s:%u create priv_workq failed continuing..\n",
+			       __func__, __LINE__);
+		}
+	} else {
+		pr_warn("%s:%u: pw_data is NULL\n", __func__, __LINE__);
+	}
+#endif
 
 	/*kpd-clk should be control by kpd driver, not depend on default clock state*/
 	kpd_clk = devm_clk_get(&pdev->dev, "kpd-clk");

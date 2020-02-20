@@ -623,6 +623,12 @@ config SENSORS_TSL2540
 	  This driver can also be built as a module.  If so, the module
 	  will be called tsl2540.
 
+config AMZ_PRIV
+       bool "Enable Amazon Privacy Mode Support"
+       default n
+       help
+         This option enables the kernel to support Amazon Privacy Mode
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

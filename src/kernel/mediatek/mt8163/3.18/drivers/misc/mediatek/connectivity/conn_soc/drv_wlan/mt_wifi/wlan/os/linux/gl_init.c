@@ -705,7 +705,7 @@ int g_u4P2POnOffing = 0;
 #define BOARD_ID_GIZA_STR "0031"
 #define BOARD_ID_BISCUIT_STR "0110"
 #define BOARD_ID_COOKIE_STR "0110"
-#define BOARD_ID_RADAR_STR "0110"
+#define BOARD_ID_RADAR_STR "0120"
 #define BOARD_ID_DOUGLAS_STR "0032"
 char idme_board_id[16];
 
@@ -921,7 +921,8 @@ static struct cfg80211_ops mtk_wlan_ops = {
 	.tdls_mgmt = TdlsexCfg80211TdlsMgmt,
 	.tdls_oper = TdlsexCfg80211TdlsOper,
 #endif /* CFG_SUPPORT_TDLS */
-#if 1				/* Remove schedule_scan because we need more verification for NLO */
+#if 0
+/* Remove schedule_scan because we need more verification for NLO */
 	.sched_scan_start = mtk_cfg80211_sched_scan_start,
 	.sched_scan_stop = mtk_cfg80211_sched_scan_stop,
 #endif
@@ -1313,6 +1314,146 @@ static COUNTRY_POWER_TABLE power_table_biscuit[] = {
 		},
 };
 
+static COUNTRY_POWER_TABLE power_table_radar[] = {
+		{
+			{'W', 'W',}, /*country code*/
+			{/*tx power*/
+			0x1E,
+			{0x00, 0x00, 0x00,},
+			0x20, 0x20, 0x20, 0x20, 0x1E, 0x1E, /* OFDM */
+			0x20, 0x20, 0x20, 0x20, 0x1E, 0x1E, /* HT20 */
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* HT40 */
+			0x22, 0x22, 0x22, 0x22, 0x22, 0x20, /* 5G_OFDM */
+			0x22, 0x22, 0x22, 0x20, 0x20, 0x20, /* 5G_HT_20 */
+			0x20, 0x20, 0x20, 0x1C, 0x1C, 0x1C, /* 5G_HT_40 */
+			},
+			0x1,/*tx power valid flag*/
+			{/*2.4G band edge power*/
+			0x1, 0x1E, 0x20, 0x0,
+			},
+			0x1,/*5G band support flag*/
+			{
+			0x1, 0x20, 0x1A
+			},
+		},
+		{
+			{'U', 'S',}, /*country code*/
+			{/*tx power*/
+			0x26,
+			{0x00, 0x00, 0x00,},
+			/*BPSK, QPSK, 16QAM, rsv,48M, 54M */
+			0x24, 0x24, 0x24, 0x24, 0x22, 0x22,
+			/* HT20BSPSK, QPSK, 16QAM, MCS5,6,7 */
+			0x24, 0x24, 0x24, 0x24, 0x22, 0x22,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			/* 5G BPSK,QPSK,16QAM, rsv, 48,54 */
+			0x22, 0x22, 0x22, 0x22, 0x22, 0x20,
+			0x22, 0x22, 0x22, 0x20, 0x20, 0x20,
+			0x20, 0x20, 0x20, 0x1C, 0x1C, 0x1C,
+			},
+			0x1,/*tx power valid flag*/
+			{/*2.4G band edge power*/
+			0x1, 0x24, 0x20, 0x0,
+			},
+			0x1,/*5G band support flag*/
+			{
+			0x1, 0x22, 0x1A
+			},
+		},
+		{
+			{'E', 'U',}, /*country code*/
+			{/*tx power*/
+			0x1E,
+			{0x00, 0x00, 0x00,},
+			0x20, 0x20, 0x20, 0x20, 0x1E, 0x1E,
+			0x20, 0x20, 0x20, 0x20, 0x1E, 0x1E,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x22, 0x22, 0x22, 0x22, 0x22, 0x20,
+			0x22, 0x22, 0x22, 0x20, 0x20, 0x20,
+			0x20, 0x20, 0x20, 0x1C, 0x1C, 0x1C,
+			},
+			0x1,/*tx power valid flag*/
+			{/*2.4G band edge power*/
+			0x1, 0x24, 0x26, 0x00,
+			},
+			0x1,/*5G band support flag*/
+			{
+			0x1, 0x1E, 0x20
+			},
+		},
+		{
+			{'J', 'P',}, /*country code*/
+			{/*tx power*/
+			0x24, /* 24CCK */
+			{0x00, 0x00, 0x00,},
+			/*BPSK, QPSK, 16QAM, rsv,48M, 54M */
+			0x24, 0x24, 0x24, 0x24, 0x22, 0x22,
+			/* HT20BSPSK, QPSK, 16QAM, MCS5,6,7 */
+			0x24, 0x24, 0x24, 0x24, 0x22, 0x22,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			/* 5G BPSK,QPSK,16QAM, rsv, 48,54 */
+			0x24, 0x24, 0x24, 0x24, 0x24, 0x22,
+			/* 5GHT20 BPSK,QPSK,16QAM, MCS 5,6,7 */
+			0x20, 0x20, 0x20, 0x1E, 0x1E, 0x1E,
+			/* 5GHT40 BPSK,QPSK,16QAM, MCS 5,6,7 */
+			0x20, 0x20, 0x20, 0x1C, 0x1C, 0x1C,
+			},
+			0x1,/*tx power valid flag*/
+			{/*2.4G band edge power*/
+			0x1, 0x24, 0x24, 0x00,
+			},
+			0x1,/*5G band support flag*/
+			{
+			0x1, 0x20, 0x20
+			},
+		},
+		{
+			{'C', 'A',}, /*country code*/
+			{/*tx power*/
+			0x26,
+			{0x00, 0x00, 0x00,},
+			/*BPSK, QPSK, 16QAM, rsv,48M, 54M */
+			0x24, 0x24, 0x24, 0x24, 0x22, 0x22,
+			/* HT20BSPSK, QPSK, 16QAM, MCS5,6,7 */
+			0x24, 0x24, 0x24, 0x24, 0x22, 0x22,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			/* 5G BPSK,QPSK,16QAM, rsv, 48,54 */
+			0x22, 0x22, 0x22, 0x22, 0x22, 0x20,
+			0x22, 0x22, 0x22, 0x20, 0x20, 0x20,
+			0x20, 0x20, 0x20, 0x1C, 0x1C, 0x1C,
+			},
+			0x1,/*tx power valid flag*/
+			{/*2.4G band edge power*/
+			0x1, 0x22, 0x20, 0x0,
+			},
+			0x1,/*5G band support flag*/
+			{
+			0x1, 0x20, 0x1A
+			},
+		},
+		{
+			{'I', 'N',}, /*country code*/
+			{/*tx power*/
+			0x20,
+			{0x00, 0x00, 0x00,},
+			0x20, 0x20, 0x20, 0x20, 0x20, 0x20, /* OFDM */
+			0x20, 0x20, 0x20, 0x20, 0x20, 0x20, /* HT20 */
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* HT40 */
+			0x22, 0x22, 0x22, 0x22, 0x22, 0x20, /* 5G_OFDM */
+			0x22, 0x22, 0x22, 0x20, 0x20, 0x20, /* 5G_HT_20 */
+			0x20, 0x20, 0x20, 0x1C, 0x1C, 0x1C, /* 5G_HT_40 */
+			},
+			0x1,/*tx power valid flag*/
+			{/*2.4G band edge power*/
+			0x1, 0x20, 0x20, 0x0,
+			},
+			0x1,/*5G band support flag*/
+			{
+			0x1, 0x22, 0x20
+			},
+		},
+};
+
 static COUNTRY_POWER_TABLE power_table_douglas[] = {
 		{
 			{'W', 'W',}, /*country code*/
@@ -1404,7 +1545,7 @@ struct board_id_power_table_map board_id_power_table_list[] = {
 	{BOARD_ID_GIZA_STR, power_table_giza, ARRAY_SIZE(power_table_giza)},
 	{BOARD_ID_BISCUIT_STR, power_table_biscuit, ARRAY_SIZE(power_table_biscuit)},
 	{BOARD_ID_COOKIE_STR, power_table_biscuit, ARRAY_SIZE(power_table_biscuit)},
-	{BOARD_ID_RADAR_STR, power_table_biscuit, ARRAY_SIZE(power_table_biscuit)},
+	{BOARD_ID_RADAR_STR, power_table_radar, ARRAY_SIZE(power_table_radar)},
 	{BOARD_ID_DOUGLAS_STR, power_table_douglas, ARRAY_SIZE(power_table_douglas)},
 };
 
@@ -3379,7 +3520,7 @@ static void wlanGetDefaultWifiMfg(P_REG_INFO_T prRegInfo)
 
 #ifdef CONFIG_IDME
 
-static WIFI_CFG_PARAM_STRUCT idme_wifi_mfg;
+WIFI_CFG_PARAM_STRUCT idme_wifi_mfg;
 
 static void wlanCopyIdmeWifiMfg(P_REG_INFO_T prRegInfo)
 {
@@ -3654,11 +3795,14 @@ static INT_32 wlanProbe(PVOID pvData)
 			if (idme_get_wifi_mfg(prRegInfo) == 0) { /* read idme OK */
 				/* copy idme Wifi data to prRegInfo */
 				wlanCopyIdmeWifiMfg(prRegInfo);
+				prRegInfo->ManufactureSource = MANUFACTURE_IDME;
+				prGlueInfo->fgNvramAvailable = TRUE;
 			} else
 #endif
 			{
 				/* Load NVRAM content to REG_INFO_T */
 				glLoadNvram(prGlueInfo, prRegInfo);
+				prRegInfo->ManufactureSource = MANUFACTURE_NVRAM;
 				if (prGlueInfo->fgNvramAvailable == FALSE)
 					wlanGetDefaultWifiMfg(prRegInfo);
 			}
@@ -3952,6 +4096,8 @@ static VOID wlanRemove(VOID)
 		kalMsleep(300);
 	}
 #endif
+
+	wlanReleasePendingOid(prGlueInfo->prAdapter, 0);
 
 	/* 4 <1> Stopping handling interrupt and free IRQ */
 	DBGLOG(INIT, TRACE, "free IRQ...\n");

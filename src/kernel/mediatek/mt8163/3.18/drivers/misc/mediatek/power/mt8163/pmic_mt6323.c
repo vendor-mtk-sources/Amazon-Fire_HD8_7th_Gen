@@ -89,6 +89,14 @@ static void pwrkey_log_to_metrics(struct work_struct *data);
 #define PWRKEY_INITIAL_STATE (0)
 #define LONG_PRESS_PWRKEY_SHUTDOWN_TIME		(6)	/* 6sec */
 
+#ifdef CONFIG_MTK_KEYRESET
+bool mtk_volume_key_pressed(void);
+#endif
+
+#ifdef CONFIG_AMAZON_POWEROFF_LOG
+static u32 logdump_wait_time = 2000; /* 2sec */
+#endif
+
 struct wake_lock pmicAuxadc_irq_lock;
 
 __attribute__ ((weak))
@@ -745,7 +753,7 @@ static void log_long_press_power_key(void)
 	if (rc < 0)
 		pr_err("call /sbin/crashreport failed, rc = %d\n", rc);
 
-	msleep(2000); /* 2s */
+	msleep(logdump_wait_time);
 }
 #endif /* CONFIG_AMAZON_POWEROFF_LOG */
 
@@ -764,10 +772,17 @@ static void long_press_restart(struct work_struct *dummy)
 			arch_reset(0, NULL);
 		}
 #endif
+#ifdef CONFIG_MTK_KEYRESET
+		if (mtk_volume_key_pressed())
+			panic("Keyreset is triggred");
+#endif
+
 		pr_err("Long key press power off\n");
 #ifdef CONFIG_AMAZON_POWEROFF_LOG
 		log_long_press_power_key();
 #endif /* CONFIG_AMAZON_POWEROFF_LOG */
+		if (upmu_get_pwrkey_deb())
+			goto done;
 		sys_sync();
 		rtc_mark_enter_lprst();  /* for metrics */
 		rtc_mark_enter_sw_lprst(); /* for long press power off */
@@ -778,6 +793,7 @@ static void long_press_restart(struct work_struct *dummy)
 
 		kernel_restart("kernel power off by long press power key");
 	}
+done:
 	mutex_unlock(&pmic_mutex);
 }
 
@@ -894,8 +910,16 @@ static irqreturn_t pwrkey_int_handler(int irq, void *dev_id)
 		chip->pressed = 1;
 		pr_notice("[pwrkey_int_handler] Press pwrkey\n");
 #if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+		#if defined(CONFIG_ABC)
+		if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
+			pr_notice
+				("Power Key Pressed during kernel power off charging, reboot OS\r\n");
+			arch_reset(0, NULL);
+		}
+		#else
 		if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT)
 			timer_pre = sched_clock();
+		#endif
 #endif
 		ktime = ktime_set(RELEASE_PWRKEY_TIME, 0);
 		hrtimer_start(&chip->check_pwrkey_release_timer, ktime, HRTIMER_MODE_REL);
@@ -1567,6 +1591,11 @@ void PMIC_INIT_SETTING_V1(void)
 	upmu_set_rg_deci_gdly_vref18_selb(1);
 	upmu_set_rg_deci_gdly_sel_mode(1);
 	upmu_set_rg_osr(3);
+
+	upmu_set_rg_chrwdt_en(0);
+	upmu_set_rg_chrwdt_int_en(0);
+	upmu_set_rg_chrwdt_wr(0);
+	upmu_set_rg_chrwdt_flag_wr(1);
 }
 
 void pmic_setting_depends_rtc(void)
@@ -1658,6 +1687,9 @@ static int pmic_mt6323_probe(struct platform_device *dev)
 	INIT_WORK(&metrics_work, pwrkey_log_to_metrics);
 #endif
 
+#ifdef CONFIG_AMAZON_POWEROFF_LOG
+	of_property_read_u32(np, "log-dump-wait-time", &logdump_wait_time);
+#endif
 	device_create_file(&(dev->dev), &dev_attr_pmic_access);
 	return 0;
 
@@ -1745,6 +1777,25 @@ static void __exit pmic_mt6323_exit(void)
 }
 fs_initcall(pmic_mt6323_init);
 module_exit(pmic_mt6323_exit);
+
+#if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING) && !defined(CONFIG_MTK_SMART_BATTERY)
+static int saved_cmdline_append(void)
+{
+	char *temp_strptr;
+
+	if (get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT
+		|| get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
+		temp_strptr =
+		kzalloc(strlen(saved_command_line) + strlen(" androidboot.mode=charger") + 1,
+			GFP_KERNEL);
+		strcpy(temp_strptr, saved_command_line);
+		strcat(temp_strptr, " androidboot.mode=charger");
+		saved_command_line = temp_strptr;
+	}
+	return 0;
+}
+late_initcall(saved_cmdline_append);
+#endif
 
 MODULE_AUTHOR("James Lo");
 MODULE_DESCRIPTION("MT6323 PMIC Device Driver");

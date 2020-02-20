@@ -789,7 +789,7 @@ wlanoidSetP2pSetNetworkAddress(IN P_ADAPTER_T prAdapter,
 				j++;
 
 				pucBuf = (PUINT_8) &prNetAddrIp->in_addr;
-				DBGLOG(P2P, INFO, "prNetAddrIp->in_addr:%d:%d:%d:%d\n",
+				DBGLOG(P2P, TRACE, "prNetAddrIp->in_addr:%d:%d:%d:%d\n",
 					(UINT_8) pucBuf[0], (UINT_8) pucBuf[1],
 					(UINT_8) pucBuf[2], (UINT_8) pucBuf[3]);
 			}

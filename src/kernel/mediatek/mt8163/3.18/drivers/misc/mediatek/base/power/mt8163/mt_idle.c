@@ -1572,9 +1572,12 @@ static ssize_t idle_state_read(struct file *filp, char __user *userbuf,
 static ssize_t idle_state_write(struct file *filp, const char __user *userbuf,
 				size_t count, loff_t *f_pos)
 {
-	char cmd[32];
 	int idx;
-	int param;
+	int ret;
+	char *cmd_ptr = cmd_buf;
+	char *param_str;
+	unsigned long param;
+	char *cmd;
 
 	count = min(count, sizeof(cmd_buf) - 1);
 
@@ -1583,11 +1586,22 @@ static ssize_t idle_state_write(struct file *filp, const char __user *userbuf,
 
 	cmd_buf[count] = '\0';
 
-	if (sscanf(cmd_buf, "%s %x", cmd, &param) == 2) {
-		if (!strcmp(cmd, "switch")) {
-			for (idx = 0; idx < NR_TYPES; idx++)
-				idle_switch[idx] = (param & BIT(idx)) ? 1 : 0;
-		}
+	cmd = strsep(&cmd_ptr, " ");
+	if (cmd == NULL)
+		return -EINVAL;
+
+	param_str = strsep(&cmd_ptr, " ");
+	if (param_str == NULL)
+		return -EINVAL;
+
+	ret = kstrtoul(param_str, 16, &param);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (!strncmp(cmd, "switch", sizeof("switch"))) {
+		for (idx = 0; idx < NR_TYPES; idx++)
+			idle_switch[idx] = (param & (1U << idx)) ? 1 : 0;
+
 		return count;
 	}
 
@@ -1659,8 +1673,11 @@ static ssize_t dpidle_state_read(struct file *filp, char __user *userbuf,
 static ssize_t dpidle_state_write(struct file *filp, const char __user *userbuf,
 				size_t count, loff_t *f_pos)
 {
-	char cmd[32];
-	int param;
+	int ret;
+	char *cmd_ptr = cmd_buf;
+	char *param_str;
+	unsigned long param;
+	char *cmd;
 
 	count = min(count, sizeof(cmd_buf) - 1);
 
@@ -1669,24 +1686,32 @@ static ssize_t dpidle_state_write(struct file *filp, const char __user *userbuf,
 
 	cmd_buf[count] = '\0';
 
-	if (sscanf(cmd_buf, "%s %d", cmd, &param) == 2) {
-		if (!strcmp(cmd, "dpidle"))
-			idle_switch[IDLE_TYPE_DP] = param;
-		else if (!strcmp(cmd, "enable"))
-			enable_dpidle_by_bit(param);
-		else if (!strcmp(cmd, "disable"))
-			disable_dpidle_by_bit(param);
-		else if (!strcmp(cmd, "time"))
-			dpidle_time_critera = param;
-		else if (!strcmp(cmd, "bypass"))
-			dpidle_bypass_cnd = param;
-		return count;
-	} else if (!kstrtoint(cmd_buf, 0, &param)) {
-		idle_switch[IDLE_TYPE_DP] = param;
-		return count;
-	}
+	cmd = strsep(&cmd_ptr, " ");
+	if (cmd == NULL)
+		return -EINVAL;
 
-	return -EINVAL;
+	param_str = strsep(&cmd_ptr, " ");
+	if (param_str == NULL)
+		return -EINVAL;
+
+	ret = kstrtoul(param_str, 16, &param);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (!strncmp(cmd, "dpidle", sizeof("dpidle")))
+		idle_switch[IDLE_TYPE_DP] = param;
+	else if (!strncmp(cmd, "enable", sizeof("enable")))
+		enable_dpidle_by_bit(param);
+	else if (!strncmp(cmd, "disable", sizeof("disable")))
+		disable_dpidle_by_bit(param);
+	else if (!strncmp(cmd, "time", sizeof("time")))
+		dpidle_time_critera = param;
+	else if (!strncmp(cmd, "bypass", sizeof("bypass")))
+		dpidle_bypass_cnd = param;
+	else
+		return -EINVAL;
+
+	return count;
 }
 
 static const struct file_operations dpidle_state_fops = {
@@ -1756,8 +1781,11 @@ static ssize_t soidle_state_read(struct file *filp, char __user *userbuf,
 static ssize_t soidle_state_write(struct file *filp, const char __user *userbuf,
 				size_t count, loff_t *f_pos)
 {
-	char cmd[32];
-	int param;
+	int ret;
+	char *cmd_ptr = cmd_buf;
+	char *param_str;
+	unsigned long param;
+	char *cmd;
 
 	count = min(count, sizeof(cmd_buf) - 1);
 
@@ -1766,22 +1794,30 @@ static ssize_t soidle_state_write(struct file *filp, const char __user *userbuf,
 
 	cmd_buf[count] = '\0';
 
-	if (sscanf(cmd_buf, "%s %d", cmd, &param) == 2) {
-		if (!strcmp(cmd, "soidle"))
-			idle_switch[IDLE_TYPE_SO] = param;
-		else if (!strcmp(cmd, "enable"))
-			enable_soidle_by_bit(param);
-		else if (!strcmp(cmd, "disable"))
-			disable_soidle_by_bit(param);
-		else if (!strcmp(cmd, "time"))
-			soidle_time_critera = param;
-		return count;
-	} else if (!kstrtoint(cmd_buf, 0, &param)) {
-		idle_switch[IDLE_TYPE_SO] = param;
-		return count;
-	}
+	cmd = strsep(&cmd_ptr, " ");
+	if (cmd == NULL)
+		return -EINVAL;
 
-	return -EINVAL;
+	param_str = strsep(&cmd_ptr, " ");
+	if (param_str == NULL)
+		return -EINVAL;
+
+	ret = kstrtoul(param_str, 16, &param);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (!strncmp(cmd, "soidle", sizeof("soidle")))
+		idle_switch[IDLE_TYPE_SO] = param;
+	else if (!strncmp(cmd, "enable", sizeof("enable")))
+		enable_soidle_by_bit(param);
+	else if (!strncmp(cmd, "disable", sizeof("disable")))
+		disable_soidle_by_bit(param);
+	else if (!strncmp(cmd, "time", sizeof("time")))
+		soidle_time_critera = param;
+	else
+		return -EINVAL;
+
+	return count;
 }
 
 static const struct file_operations soidle_state_fops = {
@@ -1842,8 +1878,11 @@ static ssize_t mcidle_state_read(struct file *filp, char __user *userbuf,
 static ssize_t mcidle_state_write(struct file *filp, const char __user *userbuf,
 				size_t count, loff_t *f_pos)
 {
-	char cmd[32];
-	int param;
+	int ret;
+	char *cmd_ptr = cmd_buf;
+	char *param_str;
+	unsigned long param;
+	char *cmd;
 
 	count = min(count, sizeof(cmd_buf) - 1);
 
@@ -1852,18 +1891,27 @@ static ssize_t mcidle_state_write(struct file *filp, const char __user *userbuf,
 
 	cmd_buf[count] = '\0';
 
-	if (sscanf(cmd_buf, "%s %d", cmd, &param) == 2) {
-		if (!strcmp(cmd, "mcidle"))
-			idle_switch[IDLE_TYPE_MC] = param;
-		else if (!strcmp(cmd, "time"))
-			mcidle_time_critera = param;
-		return count;
-	} else if (!kstrtoint(cmd_buf, 0, &param)) {
-		idle_switch[IDLE_TYPE_MC] = param;
-		return count;
-	}
+	cmd = strsep(&cmd_ptr, " ");
+	if (cmd == NULL)
+		return -EINVAL;
 
-	return -EINVAL;
+	param_str = strsep(&cmd_ptr, " ");
+	if (param_str == NULL)
+		return -EINVAL;
+
+	ret = kstrtoul(param_str, 16, &param);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (!strncmp(cmd, "mcidle", sizeof("mcidle")))
+		idle_switch[IDLE_TYPE_MC] = param;
+	else if (!strncmp(cmd, "time", sizeof("time")))
+		mcidle_time_critera = param;
+	else
+		return -EINVAL;
+
+	return count;
+
 }
 
 static const struct file_operations mcidle_state_fops = {
@@ -1927,8 +1975,11 @@ static ssize_t slidle_state_read(struct file *filp, char __user *userbuf,
 static ssize_t slidle_state_write(struct file *filp, const char __user *userbuf,
 				size_t count, loff_t *f_pos)
 {
-	char cmd[32];
-	int param;
+	int ret;
+	char *cmd_ptr = cmd_buf;
+	char *param_str;
+	unsigned long param;
+	char *cmd;
 
 	count = min(count, sizeof(cmd_buf) - 1);
 
@@ -1937,23 +1988,30 @@ static ssize_t slidle_state_write(struct file *filp, const char __user *userbuf,
 
 	cmd_buf[count] = '\0';
 
-	if (sscanf(userbuf, "%s %d", cmd, &param) == 2) {
-		if (!strcmp(cmd, "slidle"))
-			idle_switch[IDLE_TYPE_SL] = param;
-		else if (!strcmp(cmd, "enable"))
-			enable_slidle_by_bit(param);
-		else if (!strcmp(cmd, "disable"))
-			disable_slidle_by_bit(param);
-		else if (!strcmp(cmd, "bypass"))
-			slidle_bypass_cg = param;
+	cmd = strsep(&cmd_ptr, " ");
+	if (cmd == NULL)
+		return -EINVAL;
 
-		return count;
-	} else if (!kstrtoint(cmd_buf, 0, &param)) {
+	param_str = strsep(&cmd_ptr, " ");
+	if (param_str == NULL)
+		return -EINVAL;
+
+	ret = kstrtoul(param_str, 16, &param);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (!strncmp(cmd, "slidle", sizeof("slidle")))
 		idle_switch[IDLE_TYPE_SL] = param;
-		return count;
-	}
+	else if (!strncmp(cmd, "enable", sizeof("enable")))
+		enable_slidle_by_bit(param);
+	else if (!strncmp(cmd, "disable", sizeof("disable")))
+		disable_slidle_by_bit(param);
+	else if (!strncmp(cmd, "bypass", sizeof("bypass")))
+		slidle_bypass_cg = param;
+	else
+		return -EINVAL;
 
-	return -EINVAL;
+	return count;
 }
 
 static const struct file_operations slidle_state_fops = {

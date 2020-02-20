@@ -519,7 +519,11 @@ static int __init ram_console_init(struct ram_console_buffer *buffer, size_t buf
 }
 
 #if defined(CONFIG_MTK_RAM_CONSOLE_USING_DRAM)
+#ifdef CONFIG_AMAZON_LL_LOG
+void *remap_lowmem(phys_addr_t start, phys_addr_t size)
+#else
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
+#endif
 {
 	struct page **pages;
 	phys_addr_t page_start;

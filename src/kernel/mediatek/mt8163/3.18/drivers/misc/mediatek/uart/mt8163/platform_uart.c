@@ -89,14 +89,14 @@ unsigned int uart_rx_history_cnt[RECORD_NUMBER];
 /*---------------------------------------------------------------------------*/
 static struct mtk_uart_setting mtk_uart_default_settings[] = {
 	{
-	 .tx_mode = UART_TX_VFIFO_DMA, .rx_mode = UART_RX_VFIFO_DMA, .dma_mode = UART_DMA_MODE_0,
+	 .tx_mode = UART_NON_DMA, .rx_mode = UART_NON_DMA, .dma_mode = UART_DMA_MODE_0,
 	 .tx_trig = UART_FCR_TXFIFO_1B_TRI, .rx_trig = UART_FCR_RXFIFO_12B_TRI,
 
 	 /* .uart_base = AP_UART0_BASE, .irq_num = UART0_IRQ_BIT_ID, .irq_sen = MT_LEVEL_SENSITIVE, */
 #if defined(CONFIG_MTK_CLKMGR) && !defined(CONFIG_MTK_FPGA)
 	 .set_bit = PDN_FOR_UART1, .clr_bit = PDN_FOR_UART1, .pll_id = PDN_FOR_UART1,
 #endif
-	 .sysrq = FALSE, .hw_flow = TRUE, .vff = TRUE,
+	 .sysrq = FALSE, .hw_flow = FALSE, .vff = FALSE, /* UART1 */
 	 },
 	{
 	 .tx_mode = UART_TX_VFIFO_DMA, .rx_mode = UART_RX_VFIFO_DMA, .dma_mode = UART_DMA_MODE_0,
@@ -106,17 +106,17 @@ static struct mtk_uart_setting mtk_uart_default_settings[] = {
 #if defined(CONFIG_MTK_CLKMGR) && !defined(CONFIG_MTK_FPGA)
 	 .set_bit = PDN_FOR_UART2, .clr_bit = PDN_FOR_UART2, .pll_id = PDN_FOR_UART2,
 #endif
-	 .sysrq = FALSE, .hw_flow = TRUE, .vff = TRUE,
+	 .sysrq = FALSE, .hw_flow = TRUE, .vff = TRUE, /* UART2 */
 	 },
 	{
-	 .tx_mode = UART_NON_DMA, .rx_mode = UART_NON_DMA, .dma_mode = UART_DMA_MODE_0,
+	 .tx_mode = UART_TX_VFIFO_DMA, .rx_mode = UART_RX_VFIFO_DMA, .dma_mode = UART_DMA_MODE_0,
 	 .tx_trig = UART_FCR_TXFIFO_1B_TRI, .rx_trig = UART_FCR_RXFIFO_12B_TRI,
 
 	 /* .uart_base = AP_UART2_BASE, .irq_num = UART2_IRQ_BIT_ID, .irq_sen = MT_LEVEL_SENSITIVE, */
 #if defined(CONFIG_MTK_CLKMGR) && !defined(CONFIG_MTK_FPGA)
 	 .set_bit = PDN_FOR_UART3, .clr_bit = PDN_FOR_UART3, .pll_id = PDN_FOR_UART3,
 #endif
-	 .sysrq = FALSE, .hw_flow = FALSE, .vff = TRUE,	/* UART3 */
+	 .sysrq = FALSE, .hw_flow = FALSE, .vff = FALSE,	/* UART3 */
 	 },
 	{
 	 .tx_mode = UART_NON_DMA, .rx_mode = UART_NON_DMA, .dma_mode = UART_DMA_MODE_0,
@@ -483,8 +483,6 @@ int mtk_uart_vfifo_enable(struct mtk_uart *uart, struct mtk_uart_vfifo *vfifo)
 	 * NOTE: For FCR is a read only register reason,
 	 *       special read/write/set/clr function need to use
 	 */
-	/*UART_SET_BITS(UART_FCR_FIFO_INIT, UART_FCR);
-	   UART_CLR_BITS(UART_FCR_DMA1, UART_FCR); */
 	__set_fcr_register(uart, UART_FCR_FIFO_INIT);
 	__clr_fcr_register(uart, UART_FCR_DMA1);
 
@@ -654,8 +652,35 @@ void mtk_uart_tx_vfifo_flush(struct mtk_uart *uart, int timeout)
 #endif				/* ENABE_HRTIMER_FLUSH */
 }
 
+/*
+ * check whether the dma flush operation is finished or not.
+ * return 0 for flush success.
+ * return others for flush timeout.
+ */
+static int mtk_dma_check_flush_result(struct mtk_uart *uart)
+{
+	struct uart_port *port = &uart->port;
+	struct mtk_uart_vfifo *vfifo = uart->tx_vfifo;
+	struct timespec begin, end;
+
+	begin = ktime_to_timespec(ktime_get());
+
+	while (UART_READ32(VFF_FLUSH(vfifo->base))) {
+		end = ktime_to_timespec(ktime_get());
+		if ((end.tv_sec - begin.tv_sec) > 1 ||
+			((end.tv_sec - begin.tv_sec) == 1 && end.tv_nsec > begin.tv_nsec)) {
+			pr_info("[UART%d] Polling flush timeout 1000ms, FLUSH:0x%x\n",
+			port->line, UART_READ32(VFF_FLUSH(vfifo->base)));
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+
 /*---------------------------------------------------------------------------*/
-static void mtk_uart_dma_vfifo_tx_tasklet_byte(unsigned long arg)
+static int mtk_uart_dma_vfifo_tx_tasklet_byte(unsigned long arg)
 {
 	struct mtk_uart *uart = (struct mtk_uart *)arg;
 	struct uart_port *port = &uart->port;
@@ -663,8 +688,6 @@ static void mtk_uart_dma_vfifo_tx_tasklet_byte(unsigned long arg)
 	struct mtk_uart_vfifo *vfifo = uart->tx_vfifo;
 	struct circ_buf *xmit = &port->state->xmit;
 	unsigned int len, count, size, left, chk = 0;
-	ktime_t begin, end;
-	struct timespec a, b;
 
 	size = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE);
 	left = vfifo->size - mtk_uart_vfifo_get_counts(vfifo);
@@ -677,24 +700,23 @@ static void mtk_uart_dma_vfifo_tx_tasklet_byte(unsigned long arg)
 	}
 
 	DGBUF_INIT(vfifo);
-	begin = ktime_get();
-	a = ktime_to_timespec(begin);
+	if (mtk_dma_check_flush_result(uart))
+		return -1;
+
+	MSG(ERR, "%s:%d,size:%d, vfifo_cnt:%d, left:%d, len:%d, xmit head:%d, tail:%d\n",
+		__FUNCTION__, __LINE__, size, mtk_uart_vfifo_get_counts(vfifo),
+		left, len, xmit->head, xmit->tail);
+
 	while (len--) {
-		/*DMA limitation.
-		   Workaround: Polling flush bit to zero, set 1s timeout */
-		while (UART_READ32(VFF_FLUSH(vfifo->base))) {
-			end = ktime_get();
-			b = ktime_to_timespec(end);
-			if ((b.tv_sec - a.tv_sec) > 1 || ((b.tv_sec - a.tv_sec) == 1 && b.tv_nsec > a.tv_nsec)) {
-				pr_debug("[UART%d] Polling flush timeout\n", port->line);
-				return;
-			}
-		}
 		DGBUF_PUSH_CH(vfifo, (char)xmit->buf[xmit->tail]);
 		uart->write_byte(uart, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		port->icount.tx++;
 	}
+	MSG(ERR, "%s:%d,size:%d, vfifo_cnt:%d, left:%d, len:%d, xmit head:%d, tail:%d\n",
+		__FUNCTION__, __LINE__, size, mtk_uart_vfifo_get_counts(vfifo),
+		left, len, xmit->head, xmit->tail);
+
 #if defined(ENABLE_VFIFO_DEBUG)
 	if (UART_DEBUG_EVT(DBG_EVT_DMA) && UART_DEBUG_EVT(DBG_EVT_BUF)) {
 		char str[4] = { 0 };
@@ -738,99 +760,9 @@ static void mtk_uart_dma_vfifo_tx_tasklet_byte(unsigned long arg)
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(port);
 
+	return 0;
 }
 
-/*---------------------------------------------------------------------------*/
-/*static int mtk_uart_vfifo_write_string(struct mtk_uart *uart, const unsigned char *chars, size_t size)
-{
-    void *addr, *base = uart->tx_vfifo->base;
-    unsigned int wpt = UART_READ32(VFF_WPT(base));
-    unsigned int num_to_end;
-
-    addr = (void*)((wpt&0xffff)+uart->tx_vfifo->addr);
-    num_to_end = UART_READ32(VFF_LEN(base)) - (wpt&0xffff);
-    if(num_to_end >= size){
-	memcpy(addr, chars, size);
-	mb();                                                  //make sure write point updated after VFIFO written.
-	reg_sync_writel( wpt+(unsigned int)size, VFF_WPT(base));
-    }else{
-	memcpy(addr, chars, num_to_end);
-	memcpy(uart->tx_vfifo->addr, &chars[num_to_end], (unsigned int)size - num_to_end);
-	mb();                                                  //make sure write point updated after VFIFO written.
-	wpt = ((~wpt)&0x10000)+ (unsigned int)size - num_to_end;
-	reg_sync_writel(wpt, VFF_WPT(base));
-    }
-
-    return size;
-}*/
-/*---------------------------------------------------------------------------*/
-/*static void mtk_uart_dma_vfifo_tx_tasklet_str(unsigned long arg)
-{
-    struct mtk_uart *uart = (struct mtk_uart *)arg;
-    struct uart_port   *port = &uart->port;
-    //struct mtk_uart_dma *dma = &uart->dma_tx;
-    struct mtk_uart_vfifo *vfifo = uart->tx_vfifo;
-    struct circ_buf    *xmit = &port->state->xmit;
-    unsigned int len, count, size, left, chk = 0;
-
-    size = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE);
-    left = vfifo->size - mtk_uart_vfifo_get_counts(vfifo);
-    left = (left > 16) ? (left-16) : (0);
-    len  = count = left < size ? left : size;
-
-    if (!len) {
-	chk = 1;
-	MSG(DMA,">>>>> zero size <<<<<\n");
-    }
-
-    DGBUF_INIT(vfifo);
-
-    mtk_uart_vfifo_write_string(uart, &xmit->buf[xmit->tail], size);
-    DGBUF_PUSH_STR(vfifo, &xmit->buf[xmit->tail], size);
-    xmit->tail = (xmit->tail+size) & (UART_XMIT_SIZE - 1);
-    port->icount.tx += size;
-
-#if defined(ENABLE_VFIFO_DEBUG)
-    if (UART_DEBUG_EVT(DBG_EVT_DMA) && UART_DEBUG_EVT(DBG_EVT_BUF)) {
-	char str[4] = {0};
-	if (count >= 4) {
-	    str[0] = vfifo->cur->dat[0];
-	    str[1] = vfifo->cur->dat[1];
-	    str[2] = vfifo->cur->dat[vfifo->cur->idx-2];
-	    str[3] = vfifo->cur->dat[vfifo->cur->idx-1];
-	} else {
-	    int idx;
-	    for (idx = 0; idx < count; idx++)
-		str[idx] = vfifo->cur->dat[idx];
-	    for (; idx < 4; idx++)
-		str[idx] = 0;
-	}
-	MSG(DMA, "TX[%4d]: %4d/%4d [%05X-%05X] (%02X %02X .. %02X %02X)\n",
-	    size, count, left, UART_READ32(VFF_WPT(vfifo->base)), UART_READ32(VFF_RPT(vfifo->base)),
-	    str[0], str[1], str[2], str[3]);
-    } else {
-	MSG(DMA, "TX[%4d]: %4d/%4d [%05X-%05X]\n",
-	    size, count, left, UART_READ32(VFF_WPT(vfifo->base)), UART_READ32(VFF_RPT(vfifo->base)));
-    }
-#endif
-
-#if defined(ENABLE_VFIFO_DEBUG)
-    if (UART_DEBUG_EVT(DBG_EVT_DAT) && UART_DEBUG_EVT(DBG_EVT_BUF)) {
-	int i;
-	pr_debug("[UART%d_TX] %4d bytes:", uart->nport, vfifo->cur->idx);
-	for (i = 0; i < vfifo->cur->idx; i++) {
-	    if (i % 16 == 0)
-		pr_debug("\n");
-	    pr_debug("%.2x ", (unsigned char)vfifo->cur->dat[i]);
-	}
-	pr_debug("\n");
-    }
-#endif
-
-    if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
-	uart_write_wakeup(port);
-
-}*/
 /*---------------------------------------------------------------------------*/
 void mtk_uart_dma_vfifo_tx_tasklet(unsigned long arg)
 {
@@ -842,28 +774,46 @@ void mtk_uart_dma_vfifo_tx_tasklet(unsigned long arg)
 	int txcount = port->icount.tx;
 	void *base = vfifo->base;
 	unsigned long flags;
+	int ret = 0;
+	int timeout_cnt = 0;
+	int size = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE);
+	int xmit_size = CIRC_CNT(xmit->head, xmit->tail, UART_XMIT_SIZE);
 
 	spin_lock_irqsave(&vfifo->iolock, flags);
-	if (atomic_inc_and_test(&vfifo->entry) > 1) {
-		MSG(ERR, "tx entry!!\n");
+	if (atomic_inc_return(&vfifo->entry) > 1) {
+		MSG(ERR, "do TX tasklet_schedule!! xmit_size:%d, size:%d, "
+		"head:%d, tail:%d\n", xmit_size, size, xmit->head, xmit->tail);
 		tasklet_schedule(&vfifo->dma->tasklet);
 	} else {
+		MSG(ERR, "[UART%d] start tx_tasklet left:%d, xmit_size:%d, size:%d, head:%d, tail:%d\n",
+			uart->nport, UART_READ32(VFF_LEFT_SIZE(base)), xmit_size, size, xmit->head, xmit->tail);
 		while (UART_READ32(VFF_LEFT_SIZE(base)) >= vfifo->trig) {
 			/* deal with x_char first */
 			if (unlikely(port->x_char)) {
-				MSG(INFO, "detect x_char!!\n");
+				MSG(ERR, "detect x_char!!\n");
 				uart->write_byte(uart, port->x_char);
 				port->icount.tx++;
 				port->x_char = 0;
 				break;
 			}
 			if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
+				MSG(ERR, "uart_circ_empty!!\n");
 				uart->pending_tx_reqs = 0;
 				atomic_set(&dma->free, 1);
 				complete(&dma->done);
 				break;
 			}
-			mtk_uart_dma_vfifo_tx_tasklet_byte(arg);
+			ret = mtk_uart_dma_vfifo_tx_tasklet_byte(arg);
+			MSG(ERR, "After tx_tasklet_byte[ret:%d], LEFT:%d, head:%d, tail:%d\n",
+				ret, UART_READ32(VFF_LEFT_SIZE(base)), xmit->head, xmit->tail);
+			if (ret != 0) {
+				timeout_cnt++;
+				if (timeout_cnt >= 6) {
+					MSG(ERR, "tx_tasklet_byte flush timeout, tasklet_schedule!! \n");
+					tasklet_schedule(&vfifo->dma->tasklet);
+					break;
+				}
+			}
 		}
 		if (txcount != port->icount.tx) {
 			mtk_uart_vfifo_enable_tx_intr(uart);
@@ -874,101 +824,6 @@ void mtk_uart_dma_vfifo_tx_tasklet(unsigned long arg)
 	spin_unlock_irqrestore(&vfifo->iolock, flags);
 }
 
-/*---------------------------------------------------------------------------*/
-/*static void mtk_uart_dma_vfifo_rx_tasklet_byte(unsigned long arg)
-{
-    struct mtk_uart *uart = (struct mtk_uart*)arg;
-    struct uart_port   *port = &uart->port;
-    struct mtk_uart_vfifo *vfifo = uart->rx_vfifo;
-    struct tty_struct *tty = uart->port.state->port.tty;
-    int count, left;
-    unsigned int ch, flag, status;
-    unsigned long flags;
-
-    MSG_FUNC_ENTRY();
-
-    count = left = mtk_uart_vfifo_get_counts(vfifo);
-
-    spin_lock_irqsave(&port->lock, flags);
-
-    DGBUF_INIT(vfifo);
-    while (!mtk_uart_vfifo_is_empty(vfifo) && count > 0) {
-
-	status = uart->read_status(uart);
-	status = mtk_uart_filter_line_status(uart);
-
-	ch = uart->read_byte(uart);
-	flag = TTY_NORMAL;
-
-	if (status & UART_LSR_BI) {
-	    MSG(INFO, "Break Interrupt!!!\n");
-	    port->icount.brk++;
-	    if (uart_handle_break(port))
-		continue;
-	    flag = TTY_BREAK;
-	} else if (status & UART_LSR_PE) {
-	    MSG(INFO, "Parity Error!!!\n");
-	    port->icount.parity++;
-	    flag = TTY_PARITY;
-	} else if (status & UART_LSR_FE) {
-	    MSG(INFO, "Frame Error!!!\n");
-	    port->icount.frame++;
-	    flag = TTY_FRAME;
-	} else if (status & UART_LSR_OE) {
-	    MSG(INFO, "Overrun!!!\n");
-	    port->icount.overrun++;
-	    flag = TTY_OVERRUN;
-	}
-	port->icount.rx++;
-	count--;
-	DGBUF_PUSH_CH(vfifo, ch);
-	if (!tty_insert_flip_char(tty, ch, flag))
-	    MSG(ERR, "tty_insert_flip_char: no space\n");
-    }
-    tty_flip_buffer_push(tty);
-
-#if defined(ENABLE_VFIFO_DEBUG)
-    if (UART_DEBUG_EVT(DBG_EVT_DMA) && UART_DEBUG_EVT(DBG_EVT_BUF)) {
-	char str[4] = {0};
-	if (count >= 4) {
-	    str[0] = vfifo->cur->dat[0];
-	    str[1] = vfifo->cur->dat[1];
-	    str[2] = vfifo->cur->dat[vfifo->cur->idx-2];
-	    str[3] = vfifo->cur->dat[vfifo->cur->idx-1];
-	} else {
-	    int idx;
-	    for (idx = 0; idx < count; idx++)
-		str[idx] = vfifo->cur->dat[idx];
-	    for (; idx < 4; idx++)
-		str[idx] = 0;
-	}
-	MSG(DMA, "RX[%4d]: %4d bytes from VFIFO [%4d] (%02X %02X .. %02X %02X) %d\n",
-	    left, left - count, mtk_uart_vfifo_get_counts(vfifo), str[0], str[1], str[2], str[3],
-	    UART_READ32(VFF_VALID_SIZE(vfifo->base)));
-    } else {
-	MSG(DMA, "RX[%4d]: %4d bytes from VFIFO [%4d] %d\n",
-	    left, left - count, mtk_uart_vfifo_get_counts(vfifo),
-	    UART_READ32(VFF_VALID_SIZE(vfifo->base)));
-    }
-#endif
-
-    spin_unlock_irqrestore(&port->lock, flags);
-
-#if defined(ENABLE_VFIFO_DEBUG)
-    if (UART_DEBUG_EVT(DBG_EVT_DAT) && UART_DEBUG_EVT(DBG_EVT_BUF)) {
-	int i;
-	pr_debug("[UART%d_RX] %4d bytes:", uart->nport, vfifo->cur->idx);
-
-	for (i = 0; i < vfifo->cur->idx; i++) {
-	    if (i % 16 == 0)
-		pr_debug("\n");
-	    pr_debug("%.2x ", (unsigned char)vfifo->cur->dat[i]);
-	}
-	pr_debug("\n");
-
-    }
-#endif
-}*/
 /*---------------------------------------------------------------------------*/
 /* A duplicate of tty_insert_flip_string.                                    */
 /* The only difference is the function will accept one extra variable for    */
@@ -1021,21 +876,17 @@ static int mtk_uart_tty_insert_flip_string(struct mtk_uart *uart, const unsigned
 }
 
 /*---------------------------------------------------------------------------*/
-static void mtk_uart_dma_vfifo_rx_tasklet_str(unsigned long arg)
+void mtk_uart_dma_vfifo_rx_tasklet_str(unsigned long arg)
 {
 	struct mtk_uart *uart = (struct mtk_uart *)arg;
-	struct uart_port *port = &uart->port;
 	struct mtk_uart_vfifo *vfifo = uart->rx_vfifo;
 	struct tty_struct *tty = uart->port.state->port.tty;
 	int count, left;
 	unsigned int rxptr, txptr, txreg, rxreg;
-	unsigned long flags;
 	unsigned char *ptr;
 	void *base = vfifo->base;
 
 	MSG_FUNC_ENTRY();
-
-	spin_lock_irqsave(&port->lock, flags);
 
 	rxreg = UART_READ32(VFF_RPT(base));
 	txreg = UART_READ32(VFF_WPT(base));
@@ -1093,7 +944,6 @@ static void mtk_uart_dma_vfifo_rx_tasklet_str(unsigned long arg)
 		    UART_READ32(VFF_FLUSH(base)), UART_READ32(VFF_VALID_SIZE(base)), UART_READ32(VFF_LEFT_SIZE(base)));
 	}
 #endif
-	spin_unlock_irqrestore(&port->lock, flags);
 
 #if defined(ENABLE_VFIFO_DEBUG)
 	if (UART_DEBUG_EVT(DBG_EVT_DAT) && UART_DEBUG_EVT(DBG_EVT_BUF)) {
@@ -1114,19 +964,21 @@ static void mtk_uart_dma_vfifo_rx_tasklet_str(unsigned long arg)
 
 /*---------------------------------------------------------------------------*/
 void mtk_uart_dma_vfifo_rx_tasklet(unsigned long arg)
-{				/*the function will be called through dma irq or tasklet_schedule */
+{
 	struct mtk_uart *uart = (struct mtk_uart *)arg;
 	struct mtk_uart_vfifo *vfifo = uart->rx_vfifo;
 	unsigned long flags;
 
 	MSG(DMA, "%d, %x, %x\n", uart->read_allow(uart), UART_READ32(VFF_VALID_SIZE(vfifo->base)), vfifo->trig);
 	spin_lock_irqsave(&vfifo->iolock, flags);
-	if (atomic_inc_and_test(&vfifo->entry) > 1) {
-		MSG(ERR, "rx entry!!\n");
+	if (atomic_inc_return(&vfifo->entry) > 1) {
+		MSG(ERR, "rx tasklet schedule!!\n");
 		tasklet_schedule(&vfifo->dma->tasklet);
 	} else {
 		if (uart->read_allow(uart))
 			mtk_uart_dma_vfifo_rx_tasklet_str(arg);
+		else
+			MSG(ERR, "rx empty, return!!\n");
 	}
 	atomic_dec(&vfifo->entry);
 	spin_unlock_irqrestore(&vfifo->iolock, flags);
@@ -1151,7 +1003,6 @@ void mtk_uart_dma_setup(struct mtk_uart *uart, struct mtk_uart_dma *dma)
 		reg_sync_writel(dma->vfifo->size, VFF_LEN(base));
 
 		if (dma->vfifo->type == UART_RX_VFIFO)
-			/* reg_sync_writel(VFF_RX_INT_EN0_B, VFF_INT_EN(base)); */
 			reg_sync_writel(VFF_RX_INT_EN0_B | VFF_RX_INT_EN1_B, VFF_INT_EN(base));
 		mb();
 	}
@@ -1539,7 +1390,8 @@ void mtk_uart_set_flow_ctrl(struct mtk_uart *uart, int mode)
 	unsigned int tmp = UART_READ32(UART_LCR);
 	unsigned long flags;
 
-	MSG(CFG, "%s: %04X\n", __func__, UART_READ_EFR(uart));
+	MSG(ERR, "%s: %04X, MODE:%d, IER:0X%X\n", __func__,
+	    UART_READ_EFR(uart), mode, UART_READ32(UART_IER));
 
 	spin_lock_irqsave(&mtk_console_lock, flags);
 	switch (mode) {

@@ -114,11 +114,14 @@ static void update_passive_instance(struct thermal_zone_device *tz,
 static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 {
 	long trip_temp;
+	long trip_hyst;
 	enum thermal_trip_type trip_type;
 	enum thermal_trend trend;
 	struct thermal_instance *instance;
 	bool throttle = false;
 	int old_target;
+	char data[3][25];
+	char *envp[] = { data[0], data[1], data[2], NULL };
 
 	if (trip == THERMAL_TRIPS_NONE) {
 		trip_temp = tz->forced_passive;
@@ -126,6 +129,7 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 	} else {
 		tz->ops->get_trip_temp(tz, trip, &trip_temp);
 		tz->ops->get_trip_type(tz, trip, &trip_type);
+		tz->ops->get_trip_hyst(tz, trip, &trip_hyst);
 	}
 
 	trend = get_tz_trend(tz, trip);
@@ -144,6 +148,11 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 		if (instance->trip != trip)
 			continue;
 
+		if (trend == THERMAL_TREND_DROPPING &&
+		     tz->temperature > (trip_temp - trip_hyst)) {
+			continue;
+		}
+
 		old_target = instance->target;
 		instance->target = get_target_state(instance, trend, throttle);
 		dev_dbg(&instance->cdev->device, "old_target=%d, target=%d\n",
@@ -151,6 +160,13 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 
 		if (old_target == instance->target)
 			continue;
+
+		snprintf(data[0], sizeof(data[0]), "TRIP=%d", trip);
+		snprintf(data[1], sizeof(data[1]), "THERMAL_STATE=%ld",
+			 instance->target);
+		snprintf(data[2], sizeof(data[2]), "CDEV_TYPE=%s",
+			 instance->cdev->type);
+		kobject_uevent_env(&tz->device.kobj, KOBJ_CHANGE, envp);
 
 		/* Activate a passive thermal instance */
 		if (old_target == THERMAL_NO_TARGET &&

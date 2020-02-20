@@ -883,12 +883,20 @@ const char *md32_ocd_help_msg(void)
 int md32_ocd_input_parse(const char *buf, size_t n,
 			 struct md32_ocd_cmd_cfg *cfg)
 {
+	size_t buf_length;
 	u32 addr = 0, data = 0, break_en = 0;
 	enum cmd_md32_ocd cmd = NR_CMD_MD32_OCD;
 	char cmd_str[64], cmd_str2[64];
 	int err = 0;
-	u32 res = sscanf(buf, "%s 0x%x 0x%x", cmd_str, &addr, &data);
+	u32 res;
 
+	buf_length = strlen(buf);
+	if (buf_length > 63) {
+		err = 1;
+		goto error;
+	}
+
+	res = sscanf(buf, "%s 0x%x 0x%x", cmd_str, &addr, &data);
 	if (res < 1) {
 		err = 1;
 		goto error;

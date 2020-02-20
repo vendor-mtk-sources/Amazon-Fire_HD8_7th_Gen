@@ -14,6 +14,7 @@ thermal_sys-$(CONFIG_THERMAL_BACKWARD_COMPATIBLE)	+= backward_compatible.o
 thermal_sys-$(CONFIG_THERMAL_GOV_FAIR_SHARE)	+= fair_share.o
 thermal_sys-$(CONFIG_THERMAL_GOV_BANG_BANG)	+= gov_bang_bang.o
 thermal_sys-$(CONFIG_THERMAL_GOV_STEP_WISE)	+= step_wise.o
+thermal_sys-$(CONFIG_THERMAL_GOV_TRIP_STEP_WISE)	+= trip_step_wise.o
 thermal_sys-$(CONFIG_THERMAL_GOV_USER_SPACE)	+= user_space.o
 thermal_sys-$(CONFIG_THERMAL_GOV_TMP103)        += tmp103_gov.o
 
@@ -36,5 +37,10 @@ obj-$(CONFIG_INTEL_SOC_DTS_THERMAL)	+= intel_soc_dts_thermal.o
 obj-$(CONFIG_TI_SOC_THERMAL)	+= ti-soc-thermal/
 obj-$(CONFIG_INT340X_THERMAL)  += int340x_thermal/
 obj-$(CONFIG_ST_THERMAL)	+= st/
+ifeq ($(CONFIG_ABC), y)
+obj-$(CONFIG_CPU_THERMAL)    += virtual_sensor_cpufreq_cooling.o
+obj-$(CONFIG_THERMAL)    += virtual_sensor_thermal.o
+else
 obj-$(CONFIG_TMP103_THERMAL)    += tmp103_thermal.o
 obj-y				+= board-common-tmp103.o
+endif

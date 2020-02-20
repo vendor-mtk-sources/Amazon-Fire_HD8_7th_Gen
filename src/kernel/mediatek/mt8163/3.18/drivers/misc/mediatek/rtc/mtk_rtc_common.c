@@ -501,8 +501,13 @@ void mt_power_off(void)
 	rtc_xinfo("mt_power_off\n");
 
 #ifdef CONFIG_MTK_AUTO_POWER_ON_WITH_CHARGER
+	#if !defined(CONFIG_POWER_EXT)
 	if (pmic_chrdet_status() == true)
 		rtc_mark_enter_kpoc();
+	#else
+	if (upmu_get_rgs_chrdet())
+		rtc_mark_enter_kpoc();
+	#endif
 #endif
 
 	/* pull PWRBB low */
@@ -761,8 +766,15 @@ static int rtc_ops_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	/* disable alarm and clear Power-On Alarm bit */
 	hal_rtc_clear_alarm(tm);
 
+#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT)
+		if (alm->enabled)
+			hal_rtc_set_alarm(tm);
+#else
 	if (alm->enabled)
 		hal_rtc_set_alarm(tm);
+#endif
+
 	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return 0;

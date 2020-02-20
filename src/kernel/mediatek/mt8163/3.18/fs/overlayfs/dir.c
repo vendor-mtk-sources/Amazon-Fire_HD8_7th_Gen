@@ -416,6 +416,17 @@ static int ovl_create_or_link(struct dentry *dentry, int mode, dev_t rdev,
 		cap_raise(override_cred->cap_effective, CAP_FOWNER);
 		old_cred = override_creds(override_cred);
 
+		if (!hardlink) {
+			err = security_dentry_create_files_as(dentry,
+					stat.mode, &dentry->d_name, old_cred,
+					override_cred);
+			if (err) {
+				put_cred(override_cred);
+				revert_creds(old_cred);
+				goto out;
+			}
+		}
+
 		err = ovl_create_over_whiteout(dentry, inode, &stat, link,
 					       hardlink);
 

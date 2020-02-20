@@ -1719,6 +1719,7 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 						    prGlueInfo->aucReqIe,
 						    prGlueInfo->u4ReqIeLength,
 						    prGlueInfo->aucRspIe, prGlueInfo->u4RspIeLength, GFP_KERNEL);
+				bss = NULL;
 			} else {
 				/* to support user space roaming, cfg80211 will change the sme_state to connecting
 				before reassociate */
@@ -1729,6 +1730,10 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 							prGlueInfo->aucRspIe,
 							prGlueInfo->u4RspIeLength, WLAN_STATUS_SUCCESS, GFP_KERNEL);
 			}
+
+			if (bss)
+				cfg80211_put_bss(priv_to_wiphy(prGlueInfo), bss);
+
 		}
 
 		break;

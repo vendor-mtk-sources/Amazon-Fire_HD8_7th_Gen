@@ -19,6 +19,10 @@ config MTK_MUSB_QMU_SUPPORT
 	  QMU is some kind of enhanced DMA mode by HW queeu rather
 	  than SW queue to reduce SW effort.
 
+config CMD_MODE_CHANGE
+	bool "MediaTek USB mode switch support"
+	default n
+
 config USB_MTK_OTG
     tristate "MediaTek MUSB OTG support"
 	help

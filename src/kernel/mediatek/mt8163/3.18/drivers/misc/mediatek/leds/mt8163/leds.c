@@ -1031,6 +1031,10 @@ void mt_mt65xx_led_work(struct work_struct *work)
 	mutex_unlock(&leds_mutex);
 }
 
+#ifdef CONFIG_PANEL_BRIGHTNESS_SCALING
+extern int lcm_get_panel_brightness_scale(void);
+#endif
+
 void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 {
 	struct mt65xx_led_data *led_data =
@@ -1099,11 +1103,17 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 			    ("Set Backlight directly %d at time %lu, mapping level is %d\n",
 			     led_data->level, jiffies, level);
 			if (MT65XX_LED_MODE_CUST_BLS_PWM == led_data->cust.mode) {
+#ifdef CONFIG_PANEL_BRIGHTNESS_SCALING
+				int duty_cycle = lcm_get_panel_brightness_scale() * level / 255;
+				LEDS_DEBUG("Duty Cycle: %d scaling factor: %d\n", duty_cycle, lcm_get_panel_brightness_scale());
+				mt_mt65xx_led_set_cust(&led_data->cust, duty_cycle);
+#else
 				mt_mt65xx_led_set_cust(&led_data->cust,
 						       ((((1 <<
 							   MT_LED_INTERNAL_LEVEL_BIT_CNT)
 							  - 1) * level +
 							 127) / 255));
+#endif
 			} else {
 				mt_mt65xx_led_set_cust(&led_data->cust, level);
 			}

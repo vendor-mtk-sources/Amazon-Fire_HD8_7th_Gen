@@ -49,9 +49,15 @@ static struct thermal_dev_ops mtktswmt_sensor_fops = {
 };
 
 struct thermal_dev_params mtktswmt_sensor_tdp = {
+#if defined(CONFIG_THERMAL_RADAR)
+	.offset = 0,
+	.alpha = 0,
+	.weight = 0
+#else
 	.offset = 100,
 	.alpha = 101,
 	.weight = 0
+#endif
 };
 
 static ssize_t mtktswmt_sensor_show_temp(struct device *dev,

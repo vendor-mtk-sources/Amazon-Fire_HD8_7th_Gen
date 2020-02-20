@@ -638,6 +638,12 @@ static unsigned char bq24297_get_reg9_fault_type(unsigned char reg9_fault)
 	return ret;
 }
 
+void bq24297_get_fault_type(unsigned char *type)
+{
+	*type = bq24297_get_reg9_fault_type(bq24297_reg[bq24297_CON9]);
+}
+EXPORT_SYMBOL(bq24297_get_fault_type);
+
 void bq24297_polling_reg09(void)
 {
 	int i, i2;

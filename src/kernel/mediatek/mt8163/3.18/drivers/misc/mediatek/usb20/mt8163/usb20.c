@@ -432,17 +432,26 @@ bool usb_cable_connected(void)
 	int charge_type;
 #ifdef CONFIG_USB_MTK_OTG
 /*ALPS00775710*/
-#if 0
-
+#ifdef CONFIG_CMD_MODE_CHANGE
 	int iddig_state = 1;
+	if (mtk_musb->force_mode == USB_FORCE_HOST) {
+		pr_info("[USB]%s:%d is_host:%d\n",
+			__FUNCTION__, __LINE__, mtk_musb->is_host);
+		iddig_state = 0;
+	} else if (mtk_musb->force_mode == USB_FORCE_DEVICE) {
+		pr_info("[USB]%s:%d is_host:%d\n",
+			__FUNCTION__, __LINE__, mtk_musb->is_host);
+		iddig_state = 1;
+	} else {
+		pr_info("[USB]%s:%d error !!!!! is_host:%d\n",
+			__FUNCTION__, __LINE__, mtk_musb->is_host);
+	}
 
-	iddig_state = mt_get_gpio_in(38);
 	DBG(0, "iddig_state = %d\n", iddig_state);
 
 	if (!iddig_state)
 		return false;
 #endif
-	/*ALPS00775710*/
 #endif
 
 	charge_type = mt_get_charger_type();
@@ -1132,6 +1141,10 @@ static int mt_usb_init(struct musb *musb)
 	musb_writel(musb->mregs, USB_L1INTM,
 							TX_INT_STATUS | RX_INT_STATUS | USBCOM_INT_STATUS |
 							DMA_INT_STATUS);
+#endif
+
+#ifdef CONFIG_CMD_MODE_CHANGE
+	musb->force_mode = USB_FORCE_DEVICE;
 #endif
 
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);

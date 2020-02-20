@@ -3732,11 +3732,16 @@ static void _ovl_fence_release_callback(uint32_t userdata)
 		if (((ovl_status[0] & 0x1) != OVL_STATUS_IDLE) ||
 		    ((ovl_get_status() != DDP_OVL1_STATUS_SUB
 		      && (ovl_status[1] & 0x1) != OVL_STATUS_IDLE))) {
-			DISPERR("disp ovl status error, 0x%x, 0x%x\n", ovl_status[0],
-				ovl_status[1]);
+			DISPERR("disp ovl status error, 0x%x, 0x%x, cnt=%d\n",
+				ovl_status[0], ovl_status[1], err_cnt);
 			if ((err_cnt % 10) == 0) {
 				ddp_dump_analysis(DISP_MODULE_OVL0);
 				ddp_dump_analysis(DISP_MODULE_OVL1);
+				ddp_dump_reg(DISP_MODULE_OVL0);
+				ddp_dump_reg(DISP_MODULE_OVL1);
+				ddp_dump_analysis(DISP_MODULE_RDMA0);
+				ddp_dump_analysis(DISP_MODULE_MUTEX);
+				ddp_dump_analysis(DISP_MODULE_CONFIG);
 			}
 			err_cnt++;
 			/* dump cmdq cmd here */
@@ -4134,8 +4139,8 @@ static unsigned int init_dim_buffer(void)
 {
 	unsigned int mva = 0;
 	/* for main path/wdf/hdmi */
-	int width = 1920;
-	int height = 1080;
+	int width = primary_display_get_width();
+	int height = primary_display_get_height();
 	int bpp = 24;  /* the fmt of dim layer is RGB888*/
 	disp_internal_buffer_info *buffer_info;
 	int buffer_size = width * height * bpp / 8;
@@ -4144,7 +4149,8 @@ static unsigned int init_dim_buffer(void)
 	if (buffer_info != NULL) {
 		mva = buffer_info->mva;
 		memset(buffer_info->va, 0, buffer_size);
-		DISPMSG("init_dim_buffer addr: 0x%x\n", mva);
+		DISPMSG("init_dim_buffer addr: 0x%x, size: 0x%x\n",
+			mva, buffer_size);
 		kfree(buffer_info);
 	}
 

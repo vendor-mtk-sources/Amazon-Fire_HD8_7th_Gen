@@ -639,6 +639,7 @@ int __batt_meter_init_cust_data_from_dt(void)
 
 #ifdef CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT
 	fgauge_get_profile_id();
+	__batt_meter_parse_table(np, "r_profile_t4", (BATTERY_PROFILE_STRUCT *)&r_profile_t4[0]);
 #endif
 
 	if (g_fg_battery_id == 0) {
@@ -1218,6 +1219,18 @@ BATTERY_PROFILE_STRUCT_P fgauge_get_profile(unsigned int temperature)
 
 }
 
+#if defined(CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT)
+static bool bNew50dprofile;
+static int g_custom_batt_temp = 38;
+void update_new_50d_profile(int curr_temp)
+{
+	if (curr_temp >= g_custom_batt_temp)
+		bNew50dprofile = true;
+	else
+		bNew50dprofile = false;
+}
+#endif
+
 R_PROFILE_STRUCT_P fgauge_get_profile_r_table(unsigned int temperature)
 {
 	if (temperature == batt_meter_cust_data.temperature_t0)
@@ -1231,6 +1244,15 @@ R_PROFILE_STRUCT_P fgauge_get_profile_r_table(unsigned int temperature)
 
 	if (temperature == batt_meter_cust_data.temperature_t2)
 		return &r_profile_t2[0];
+
+	#if defined(CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT)
+	if (g_fg_battery_id == 0 && bNew50dprofile) {
+		if (temperature == batt_meter_cust_data.temperature_t3) {
+			pr_debug("[%s] use new 50d zcv table\r\n", __func__);
+			return &r_profile_t4[0];
+		}
+	}
+	#endif
 
 	if (temperature == batt_meter_cust_data.temperature_t3)
 		return &r_profile_t3[0];
@@ -1586,6 +1608,10 @@ void fgauge_construct_r_table_profile(signed int temperature, R_PROFILE_STRUCT_P
 	int i, saddles;
 	signed int temp_v_1 = 0, temp_v_2 = 0;
 	signed int temp_r_1 = 0, temp_r_2 = 0;
+
+	#if defined(CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT)
+	update_new_50d_profile(temperature);
+	#endif
 
 	if (temperature <= batt_meter_cust_data.temperature_t1) {
 		low_profile_p = fgauge_get_profile_r_table(batt_meter_cust_data.temperature_t0);
@@ -4712,6 +4738,33 @@ static ssize_t store_FG_g_fg_dbg_percentage_voltmode(struct device *dev,
 
 static DEVICE_ATTR(FG_g_fg_dbg_percentage_voltmode, 0664, show_FG_g_fg_dbg_percentage_voltmode,
 		   store_FG_g_fg_dbg_percentage_voltmode);
+/* ------------------------------------------------------------------------------------------- */
+#if defined(CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT)
+static ssize_t show_Custom_High_Batt_Temp(struct device *dev, struct device_attribute *attr,
+					    char *buf)
+{
+	pr_notice("custom high battery temperature = %d\n",
+			    g_custom_batt_temp);
+	return sprintf(buf, "%d\n", g_custom_batt_temp);
+}
+
+static ssize_t store_Custom_High_Batt_Temp(struct device *dev, struct device_attribute *attr,
+					     const char *buf, size_t size)
+{
+	int ret, cur;
+
+	ret = kstrtouint(buf, 0, &cur);
+	if (cur > 25)
+		g_custom_batt_temp = cur;
+	pr_notice("custom high battery temperature = %d\n",
+			    g_custom_batt_temp);
+	wake_up_bat();
+	return size;
+}
+
+static DEVICE_ATTR(Custom_High_Battery_Temperature, 0664, show_Custom_High_Batt_Temp,
+		   store_Custom_High_Batt_Temp);
+#endif
 
 /* ============================================================ // */
 static int battery_meter_probe(struct platform_device *dev)
@@ -4768,6 +4821,10 @@ static int battery_meter_probe(struct platform_device *dev)
 	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_Min_Battery_Current);
 	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_Max_Battery_Temperature);
 	ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_Min_Battery_Temperature);
+#endif
+
+#if defined(CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT)
+	ret_device_file = device_create_file(&(dev->dev), &dev_attr_Custom_High_Battery_Temperature);
 #endif
 
 	return 0;

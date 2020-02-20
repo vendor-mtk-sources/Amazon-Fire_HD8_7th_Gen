@@ -187,8 +187,14 @@ static long long mtk_pcm_I2S0dl1_get_next_write_timestamp(void)
 
 		Afe_consumed_bytes = Align64ByteSize(Afe_consumed_bytes);
 
-		u4DataRemained = Afe_Block->u4DataRemained - Afe_consumed_bytes;
-
+		if (Afe_Block->u4DataRemained < Afe_consumed_bytes) {
+			u4DataRemained = 0;
+			pr_err("%s avoid underflow set u4DataRemained =0\n",
+				__func__);
+		} else {
+			u4DataRemained = Afe_Block->u4DataRemained
+				- Afe_consumed_bytes;
+		}
 		spin_unlock_irqrestore(&pI2S0dl1MemControl->substream_lock, flags);
 
 		/* calculating timestamp with GPT value and u4DataRemained */
@@ -237,6 +243,12 @@ static long long mtk_pcm_I2S0dl1_get_next_write_timestamp(void)
 			/* real data by copy_count & the difference                   */
 			tmp = tmp + audio_bytes_to_frame(I2S0dl1_substream, 256) ;
 			while (tmp <= 0) {
+				if (u4AdjustDataRemainedSample < copy_count) {
+					u4AdjustDataRemainedSample = 0;
+					pr_err("%s avoid underflow ", __func__);
+					pr_err("set u4AdjustDataRemainedSample =0\n");
+					break;
+				}
 				u4AdjustDataRemainedSample -= copy_count;
 				tmp += copy_count;
 			}
@@ -319,10 +331,18 @@ static snd_pcm_uframes_t mtk_pcm_I2S0dl1_pointer(struct snd_pcm_substream *subst
 
 		Afe_consumed_bytes = Align64ByteSize(Afe_consumed_bytes);
 
-		Afe_Block->u4DataRemained -= Afe_consumed_bytes;
-		Afe_Block->u4DMAReadIdx += Afe_consumed_bytes;
-		Afe_Block->u4DMAReadIdx %= Afe_Block->u4BufferSize;
-
+		if (Afe_Block->u4DataRemained < Afe_consumed_bytes ||
+				Afe_Block->u4DataRemained <= 0 ||
+				Afe_Block->u4DataRemained > Afe_Block->u4BufferSize) {
+			pr_err("%s underflow\n", __func__);
+			Afe_Block->u4DataRemained = 0;
+			Afe_Block->u4DMAReadIdx += Afe_consumed_bytes;
+			Afe_Block->u4DMAReadIdx %= Afe_Block->u4BufferSize;
+		} else {
+			Afe_Block->u4DataRemained -= Afe_consumed_bytes;
+			Afe_Block->u4DMAReadIdx += Afe_consumed_bytes;
+			Afe_Block->u4DMAReadIdx %= Afe_Block->u4BufferSize;
+		}
 		PRINTK_AUD_DL1
 			("[Auddrv] HW_Cur_ReadIdx = 0x%x, HW_memory_index = 0x%x, Afe_consumed_bytes = 0x%x\n",
 			HW_Cur_ReadIdx, HW_memory_index, Afe_consumed_bytes);

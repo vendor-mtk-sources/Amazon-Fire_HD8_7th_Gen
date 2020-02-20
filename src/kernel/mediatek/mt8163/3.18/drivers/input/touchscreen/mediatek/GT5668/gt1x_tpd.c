@@ -31,6 +31,9 @@
 #include <linux/input/mt.h>
 #endif
 #include <linux/suspend.h>
+#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#include <mt_boot_common.h>
+#endif
 
 #if defined(GTP_HAVE_TOUCH_KEY) && defined(CONFIG_TPD_HAVE_BUTTON)
 #error GTP_HAVE_TOUCH_KEY and TPD_HAVE_BUTTON are mutually exclusive.
@@ -366,7 +369,7 @@ void gt1x_irq_enable(void)
 	spin_lock_irqsave(&irq_lock, flag);
 	if (!tpd_irq_flag) { /* 0-disabled */
 		tpd_irq_flag = 1;  /* 1-enabled */
-		GTP_INFO("gt1x_irq_enable is %d", tpd_irq_flag);
+		GTP_DEBUG("gt1x_irq_enable is %d", tpd_irq_flag);
 #ifdef GTP_CONFIG_OF
 		enable_irq(tpd_touch_irq);
 #else
@@ -385,7 +388,7 @@ void gt1x_irq_disable(void)
 		GTP_INFO("gt1x_irq_disable is %d", tpd_irq_flag);
 		tpd_irq_flag = 0;
 #ifdef GTP_CONFIG_OF
-		disable_irq(tpd_touch_irq);
+		disable_irq_nosync(tpd_touch_irq);
 #else
 		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
 #endif
@@ -942,11 +945,24 @@ static int tpd_local_init(void)
 static void tpd_suspend(struct device *h)
 {
 	/*Stub here to prevent IC from going to sleep*/
+	/* ..except in KPOC mode */
+#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT)
+		gt1x_suspend();
+#endif
 }
 
 static void tpd_resume(struct device *h)
 {
 	/*Stub here to prevent IC from waking*/
+	/* ..except in KPOC mode */
+#if defined(CONFIG_ABC) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
+		mutex_lock(&i2c_access);
+		gt1x_resume();
+		mutex_unlock(&i2c_access);
+	}
+#endif
 }
 #else
 /* Function to manage low power suspend */

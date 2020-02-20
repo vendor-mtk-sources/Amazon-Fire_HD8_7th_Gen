@@ -44,7 +44,16 @@ endif
 obj-$(CONFIG_THERMAL) += mtk_thermal_budget.o
 obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
-obj-$(CONFIG_THERMAL) += mtk_ts_cpu.o
+ifeq ($(CONFIG_ABC), y)
+	# mtk_thermal interfaces generic solution, recommend to enable this for mt8163
+	obj-$(CONFIG_THERMAL) += mtk_thermal.o
+	obj-$(CONFIG_CPU_THERMAL) += mtk_cpufreq_cooling.o
+else
+	obj-$(CONFIG_THERMAL) += mtk_ts_cpu.o
+endif
+
+obj-$(CONFIG_THERMAL_ALT_CPU_ZONE) += mtk_alt_ts_cpu.o
+
 #obj-$(CONFIG_THERMAL) += mtk_ts_abb.o
 obj-$(CONFIG_THERMAL) += mtk_ts_all_ts.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
@@ -55,4 +64,4 @@ obj-$(CONFIG_THERMAL) += mtk_temp_sensor_gpu.o
 obj-$(CONFIG_THERMAL) += mtk_temp_thermistor.o
 #obj-$(CONFIG_THERMAL) += tm_nth.o
 
-
+obj-$(CONFIG_THERMAL_WIFI_COOLER) += mtk_wifi_cooling.o

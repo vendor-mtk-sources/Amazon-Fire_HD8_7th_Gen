@@ -30,7 +30,9 @@
 #include <linux/vmalloc.h>
 #include <linux/aio.h>
 #include <linux/irq_work.h>
+#ifdef CONFIG_AMAZON_KLOG_CONSOLE_TRYLOCK
 #include <linux/ring_buffer.h>
+#endif
 #include "logger.h"
 
 #include <asm/ioctls.h>
@@ -1105,6 +1107,7 @@ struct kmsg_write_priv {
 	struct irq_work kmsg_write_work;
 };
 
+#ifdef CONFIG_AMAZON_KLOG_CONSOLE_TRYLOCK
 static struct ring_buffer *kmsg_rng_buf;
 static struct logger_log *kmsg_log;
 
@@ -1228,6 +1231,7 @@ static void logger_kmsg_drain_delayed(struct logger_log *log)
 		logger_kmsg_write_delayed(msg, len);
 	}
 }
+#endif
 
 static void kmsg_write_work_func(struct irq_work *irq_work)
 {
@@ -1244,6 +1248,8 @@ static DEFINE_PER_CPU(struct kmsg_write_priv, priv_data) = {
 	},
 };
 
+
+
 void logger_kmsg_write(const char *log_msg, size_t len)
 {
 	static struct logger_log *log;
@@ -1256,6 +1262,7 @@ void logger_kmsg_write(const char *log_msg, size_t len)
 	unsigned char log_level = ANDROID_LOG_INFO;
 
 	/* get the main log handler */
+#ifdef CONFIG_AMAZON_KLOG_CONSOLE_TRYLOCK
 	if (!kmsg_log) {
 		list_for_each_entry(log, &log_list, logs)
 			if (0 == strcmp(log->misc.name, LOGGER_LOG_KERNEL)) {
@@ -1268,7 +1275,13 @@ void logger_kmsg_write(const char *log_msg, size_t len)
 	}
 
 	log = kmsg_log;
-
+#else
+	if (!log) {
+		list_for_each_entry(log, &log_list, logs)
+			if (0 == strcmp(log->misc.name, LOGGER_LOG_KERNEL))
+				break;
+	}
+#endif
 	iov[0].iov_base = (unsigned char *)&log_level;
 	iov[0].iov_len  = 1;
 
@@ -1294,6 +1307,7 @@ void logger_kmsg_write(const char *log_msg, size_t len)
 	if (unlikely(!header.len))
 		return;
 
+#ifdef CONFIG_AMAZON_KLOG_CONSOLE_TRYLOCK
 	kmsg_total_count++;
 
 	/*
@@ -1334,7 +1348,7 @@ void logger_kmsg_write(const char *log_msg, size_t len)
 
 	/* drain the delayed messages (with log->mutex locked) */
 	logger_kmsg_drain_delayed(log);
-
+#endif
 	/*
 	 * Fix up any readers, pulling them forward to the first readable
 	 * entry after (what will be) the new write offset. We do this now
@@ -1361,7 +1375,9 @@ void logger_kmsg_write(const char *log_msg, size_t len)
 		total_len += len;
 	}
 
+#ifdef CONFIG_AMAZON_KLOG_CONSOLE_TRYLOCK
 	mutex_unlock(&log->mutex);
+#endif
 
 	__get_cpu_var(priv_data).log = log;
 	irq_work_queue(&(__get_cpu_var(priv_data).kmsg_write_work));
@@ -1394,6 +1410,8 @@ static int __init logger_init(void)
 	ret = create_log(LOGGER_LOG_KERNEL, __KERNEL_BUF_SIZE);
 	if (unlikely(ret))
 		goto out;
+
+#ifdef CONFIG_AMAZON_KLOG_CONSOLE_TRYLOCK
 	/* each cpu gets a PAGE_SIZE delayed klog msg buffer */
 	kmsg_rng_buf = ring_buffer_alloc(PAGE_SIZE, RB_FL_OVERWRITE);
 	if (unlikely(!kmsg_rng_buf))
@@ -1401,6 +1419,7 @@ static int __init logger_init(void)
 	ret = sysfs_create_group(kernel_kobj, &kmsg_attr_group);
 	if (ret)
 		goto out;
+#endif
 #endif
 
 #ifdef CONFIG_AMAZON_METRICS_LOG

@@ -1696,6 +1696,32 @@ out:
 	return rc;
 }
 
+/*
+ * Determine the label for an inode that might be unioned.
+ */
+static int
+selinux_determine_inode_label(const struct task_security_struct *tsec,
+				 struct inode *dir,
+				 const struct qstr *name, u16 tclass,
+				 u32 *_new_isid)
+{
+	const struct superblock_security_struct *sbsec = dir->i_sb->s_security;
+	const struct inode_security_struct *dsec = dir->i_security;
+
+	if ((sbsec->flags & SE_SBINITIALIZED) &&
+	    (sbsec->behavior == SECURITY_FS_USE_MNTPOINT)) {
+		*_new_isid = sbsec->mntpoint_sid;
+	} else if ((sbsec->flags & SBLABEL_MNT) &&
+		   tsec->create_sid) {
+		*_new_isid = tsec->create_sid;
+	} else {
+		return security_transition_sid(tsec->sid, dsec->sid, tclass,
+					       name, _new_isid);
+	}
+
+	return 0;
+}
+
 /* Check whether a task can create a file. */
 static int may_create(struct inode *dir,
 		      struct dentry *dentry,
@@ -1712,7 +1738,6 @@ static int may_create(struct inode *dir,
 	sbsec = dir->i_sb->s_security;
 
 	sid = tsec->sid;
-	newsid = tsec->create_sid;
 
 	ad.type = LSM_AUDIT_DATA_DENTRY;
 	ad.u.dentry = dentry;
@@ -1723,12 +1748,10 @@ static int may_create(struct inode *dir,
 	if (rc)
 		return rc;
 
-	if (!newsid || !(sbsec->flags & SBLABEL_MNT)) {
-		rc = security_transition_sid(sid, dsec->sid, tclass,
-					     &dentry->d_name, &newsid);
-		if (rc)
-			return rc;
-	}
+	rc = selinux_determine_inode_label(current_security(), dir,
+					   &dentry->d_name, tclass, &newsid);
+	if (rc)
+		return rc;
 
 	rc = avc_has_perm(sid, newsid, tclass, FILE__CREATE, &ad);
 	if (rc)
@@ -2726,34 +2749,38 @@ static int selinux_dentry_init_security(struct dentry *dentry, int mode,
 					struct qstr *name, void **ctx,
 					u32 *ctxlen)
 {
-	const struct cred *cred = current_cred();
-	struct task_security_struct *tsec;
-	struct inode_security_struct *dsec;
-	struct superblock_security_struct *sbsec;
-	struct inode *dir = dentry->d_parent->d_inode;
 	u32 newsid;
 	int rc;
 
-	tsec = cred->security;
-	dsec = dir->i_security;
-	sbsec = dir->i_sb->s_security;
-
-	if (tsec->create_sid && sbsec->behavior != SECURITY_FS_USE_MNTPOINT) {
-		newsid = tsec->create_sid;
-	} else {
-		rc = security_transition_sid(tsec->sid, dsec->sid,
-					     inode_mode_to_security_class(mode),
-					     name,
-					     &newsid);
-		if (rc) {
-			printk(KERN_WARNING
-				"%s: security_transition_sid failed, rc=%d\n",
-			       __func__, -rc);
-			return rc;
-		}
-	}
+	rc = selinux_determine_inode_label(current_security(),
+					   d_inode(dentry->d_parent), name,
+					   inode_mode_to_security_class(mode),
+					   &newsid);
+	if (rc)
+		return rc;
 
 	return security_sid_to_context(newsid, (char **)ctx, ctxlen);
+}
+
+static int selinux_dentry_create_files_as(struct dentry *dentry, int mode,
+					  struct qstr *name,
+					  const struct cred *old,
+					  struct cred *new)
+{
+	u32 newsid;
+	int rc;
+	struct task_security_struct *tsec;
+
+	rc = selinux_determine_inode_label(old->security,
+					   d_inode(dentry->d_parent), name,
+					   inode_mode_to_security_class(mode),
+					   &newsid);
+	if (rc)
+		return rc;
+
+	tsec = new->security;
+	tsec->create_sid = newsid;
+	return 0;
 }
 
 static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
@@ -2774,22 +2801,12 @@ static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
 	sid = tsec->sid;
 	newsid = tsec->create_sid;
 
-	if ((sbsec->flags & SE_SBINITIALIZED) &&
-	    (sbsec->behavior == SECURITY_FS_USE_MNTPOINT))
-		newsid = sbsec->mntpoint_sid;
-	else if (!newsid || !(sbsec->flags & SBLABEL_MNT)) {
-		rc = security_transition_sid(sid, dsec->sid,
-					     inode_mode_to_security_class(inode->i_mode),
-					     qstr, &newsid);
-		if (rc) {
-			printk(KERN_WARNING "%s:  "
-			       "security_transition_sid failed, rc=%d (dev=%s "
-			       "ino=%ld)\n",
-			       __func__,
-			       -rc, inode->i_sb->s_id, inode->i_ino);
-			return rc;
-		}
-	}
+	rc = selinux_determine_inode_label(current_security(),
+		dir, qstr,
+		inode_mode_to_security_class(inode->i_mode),
+		&newsid);
+	if (rc)
+		return rc;
 
 	/* Possibly defer initialization to selinux_complete_init. */
 	if (sbsec->flags & SE_SBINITIALIZED) {
@@ -3195,6 +3212,41 @@ static void selinux_inode_getsecid(const struct inode *inode, u32 *secid)
 {
 	struct inode_security_struct *isec = inode->i_security;
 	*secid = isec->sid;
+}
+
+static int selinux_inode_copy_up(struct dentry *src, struct cred **new)
+{
+	u32 sid;
+	struct task_security_struct *tsec;
+	struct cred *new_creds = *new;
+
+	if (new_creds == NULL) {
+		new_creds = prepare_creds();
+		if (!new_creds)
+			return -ENOMEM;
+	}
+
+	tsec = new_creds->security;
+	/* Get label from overlay inode and set it in create_sid */
+	selinux_inode_getsecid(d_inode(src), &sid);
+	tsec->create_sid = sid;
+	*new = new_creds;
+	return 0;
+}
+
+static int selinux_inode_copy_up_xattr(const char *name)
+{
+	/* The copy_up hook above sets the initial context on an inode, but we
+	 * don't then want to overwrite it by blindly copying all the lower
+	 * xattrs up.  Instead, we have to filter out SELinux-related xattrs.
+	 */
+	if (strcmp(name, XATTR_NAME_SELINUX) == 0)
+		return 1; /* Discard */
+	/*
+	 * Any other attribute apart from SELINUX is not claimed, supported
+	 * by selinux.
+	 */
+	return -EOPNOTSUPP;
 }
 
 /* file security operations */
@@ -5944,6 +5996,7 @@ static struct security_operations selinux_ops = {
 	.sb_parse_opts_str = 		selinux_parse_opts_str,
 
 	.dentry_init_security =		selinux_dentry_init_security,
+	.dentry_create_files_as =	selinux_dentry_create_files_as,
 
 	.inode_alloc_security =		selinux_inode_alloc_security,
 	.inode_free_security =		selinux_inode_free_security,
@@ -5970,6 +6023,8 @@ static struct security_operations selinux_ops = {
 	.inode_setsecurity =		selinux_inode_setsecurity,
 	.inode_listsecurity =		selinux_inode_listsecurity,
 	.inode_getsecid =		selinux_inode_getsecid,
+	.inode_copy_up =		selinux_inode_copy_up,
+	.inode_copy_up_xattr =	selinux_inode_copy_up_xattr,
 
 	.file_permission =		selinux_file_permission,
 	.file_alloc_security =		selinux_file_alloc_security,

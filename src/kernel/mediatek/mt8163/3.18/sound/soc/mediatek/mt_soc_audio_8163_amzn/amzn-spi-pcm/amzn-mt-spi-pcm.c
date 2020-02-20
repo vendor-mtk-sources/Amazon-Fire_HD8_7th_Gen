@@ -24,6 +24,8 @@
 #include <linux/ktime.h>
 #include <linux/spinlock.h>
 #include <linux/thread_info.h>
+#include <linux/cpumask.h>
+#include <linux/regulator/consumer.h>
 
 #ifdef CONFIG_AMAZON_METRICS_LOG
 #include <linux/metricslog.h>
@@ -58,6 +60,7 @@
 #define SPI_USES_HDMI_BUFFER
 */
 #define SPI_SETUP_BUF_SIZE 32
+#define FPGA_VCC_DELAY_MS 10
 /* Module data structure */
 struct amzn_spi_priv {
 	struct workqueue_struct *spi_wq;
@@ -520,6 +523,10 @@ static void spi_data_read(struct work_struct *work)
 	int ret = 0, iter_count = 0;
 	uint32_t prev_fpga_ts = 0;
 
+#ifdef CONFIG_SPI_AFFINITY
+	struct cpumask affinity_mask;
+#endif
+
 	pr_info("%s\n", __func__);
 	tx_df = kzalloc(sizeof(struct dough_frame), GFP_KERNEL | GFP_DMA);
 #ifdef SPI_USES_LOCAL_DMA
@@ -547,6 +554,14 @@ static void spi_data_read(struct work_struct *work)
 		goto fail;
 	}
 	sched_setscheduler(kworker_task, SCHED_FIFO, &param);
+
+#ifdef CONFIG_SPI_AFFINITY
+	cpumask_clear(&affinity_mask);
+	cpumask_set_cpu(1, &affinity_mask);
+	if (sched_setaffinity(kworker_task->pid, &affinity_mask) == -1) {
+		pr_err("%s: could not set CPU affinity.\n", __func__);
+	}
+#endif
 	cur_ktime = ktime_get_raw();
 	/* Initialize with the same value*/
 	prev_ktime = cur_ktime;
@@ -880,12 +895,56 @@ static int amzn_mt_spi_probe(struct spi_device *spi)
 	struct dough_frame *tx_df, *rx_df;
 	size_t bytes;
 	void *fw_buf;
+	/* TODO: Enable it for all products */
+#ifdef CONFIG_ABC
+	struct regulator *reg = NULL;
+	int volt, reg_status_before = 0, reg_status_after;
+#endif
 
 #ifdef SPI_DUMMY_CODEC
 	struct platform_device *codec_pdev;
 #endif
 
 	pr_info("%s\n", __func__);
+
+#ifdef CONFIG_ABC
+	/* VCCIO2 Enabled */
+	reg = devm_regulator_get(&spi->dev, "vcamaf");
+	if (IS_ERR(reg)) {
+		pr_info("%s vcamaf not found\n", __func__);
+		return -EINVAL;
+	}
+	reg_status_before = regulator_is_enabled(reg);
+	rc = regulator_enable(reg);
+	if (rc != 0) {
+		pr_err("Fails to enable vcamaf, ret = 0x%x", rc);
+		return -EINVAL;
+	}
+	reg_status_after = regulator_is_enabled(reg);
+	volt = regulator_get_voltage(reg);
+	pr_info("%s: vcamaf enable = %d:%d voltage = %d\n", __func__,
+		reg_status_before, reg_status_after, volt);
+
+	msleep(FPGA_VCC_DELAY_MS);
+
+	/* VCCIO0 Enabled */
+	reg = devm_regulator_get(&spi->dev, "vgp3");
+	if (IS_ERR(reg)) {
+		pr_info("%s vgp3 not found\n", __func__);
+		return -EINVAL;
+	}
+
+	reg_status_before = regulator_is_enabled(reg);
+	rc = regulator_enable(reg);
+	if (rc != 0) {
+		pr_err("Fails to enable vgp3, ret = 0x%x", rc);
+		return -EINVAL;
+	}
+	reg_status_after = regulator_is_enabled(reg);
+	volt = regulator_get_voltage(reg);
+	pr_info("%s: vgp3 enable = %d:%d voltage = %d\n", __func__,
+		reg_status_before, reg_status_after, volt);
+#endif
 
 	/* TODO(DEE-30199): Fix with global decalration
 	spi_data = devm_kzalloc(&spi->dev, sizeof(struct amzn_spi_priv),
