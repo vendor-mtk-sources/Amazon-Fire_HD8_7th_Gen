@@ -584,6 +584,12 @@ VOID aisFuncValidateRxActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 #if defined(CFG_TEST_MGMT_FSM) && (CFG_TEST_MGMT_FSM != 0)
 VOID aisTest(VOID);
 #endif /* CFG_TEST_MGMT_FSM */
+
+#if CFG_SUPPORT_PROBE_REQ_REPORT
+VOID aisFuncEnableProbeReqReport(IN P_ADAPTER_T prAdapter, IN BOOLEAN fgIsEnable);
+#endif
+
+
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************

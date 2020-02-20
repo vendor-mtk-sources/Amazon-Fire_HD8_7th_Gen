@@ -37,6 +37,7 @@
 #define MAX_SIZE             10
 
 static struct proc_dir_entry *life_cycle_metrics_file;
+static bool is_usb_mode;
 
 typedef enum {
 	LIFE_CYCLES_DEFAULT_REASON = 0,
@@ -305,6 +306,13 @@ static int life_cycle_reason_lookup(void)
 		break;
 	}
 
+	/*
+	 * If we haven't determined the boot reason yet, as a last resort,
+	 * check if USB is the reason passed by LK
+	 */
+	if (!lcr_found && is_usb_mode)
+		p_dev_sol->life_cycle_reason_idx = COLD_BOOT_BY_USB_CHARGER;
+
 	return 0;
 }
 
@@ -506,6 +514,17 @@ static void __exit dev_sol_cleanup(void)
 	if (p_dev_sol)
 		kfree(p_dev_sol);
 }
+
+static int __init sol_bootreason(char *options)
+{
+	pr_info("bootmode=%s\n", options);
+	if (0 == strcmp("usb", options))
+		is_usb_mode = true;
+	else
+		is_usb_mode = false;
+	return 0;
+}
+__setup("androidboot.bootreason=", sol_bootreason);
 
 late_initcall(dev_sol_init);
 module_exit(dev_sol_cleanup);

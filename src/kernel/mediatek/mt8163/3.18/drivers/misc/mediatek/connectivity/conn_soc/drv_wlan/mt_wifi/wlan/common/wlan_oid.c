@@ -9869,7 +9869,7 @@ wlanoidUpdatePowerTable(IN P_ADAPTER_T prAdapter,
 		DBGLOG(INIT, INFO, "no updated power table found\n");
 	}
 
-	/*disable auto tx power for radar*/
+	/*disable auto tx power for abd123*/
 	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0) {
 		CMD_SW_DBG_CTRL_T rCmdSwCtrl;
 

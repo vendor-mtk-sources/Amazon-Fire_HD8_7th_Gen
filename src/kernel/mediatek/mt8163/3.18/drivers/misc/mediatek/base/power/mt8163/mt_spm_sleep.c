@@ -30,6 +30,10 @@
 #define SPM_PWAKE_EN            0
 #define SPM_PCMWDT_EN           0
 #define SPM_BYPASS_SYSPWREQ     1
+#elif defined(CONFIG_abe123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+#define SPM_PWAKE_EN            1
+#define SPM_PCMWDT_EN           0
+#define SPM_BYPASS_SYSPWREQ     0
 #else
 #define SPM_PWAKE_EN            1
 #define SPM_PCMWDT_EN           1

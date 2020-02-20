@@ -1067,7 +1067,7 @@ VOID aisInitializeConnectionSettings(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T p
 	COPY_MAC_ADDR(prConnSettings->aucMacAddress, aucZeroMacAddr);
 
 	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abh123", 7) == 0 ||
-		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abc123", 6) == 0 ||
+		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "cookie", 6) == 0 ||
 		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0)
 		ucDelayDisconnectTime =
 			AIS_DELAY_TIME_OF_LONG_DISC_SEC_DUALBAND;
@@ -3739,6 +3739,9 @@ VOID aisUpdateBssInfoForMergeIBSS(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T pr
 
 }				/* end of aisUpdateBssInfoForMergeIBSS() */
 
+#endif
+
+#if (CFG_SUPPORT_ADHOC || CFG_SUPPORT_PROBE_REQ_REPORT)
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief This function will validate the Rx Probe Request Frame and then return
@@ -3762,35 +3765,40 @@ BOOLEAN aisValidateProbeReq(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb, OUT
 	UINT_16 u2IELength;
 	UINT_16 u2Offset = 0;
 	BOOLEAN fgReplyProbeResp = FALSE;
+	P_AIS_FSM_INFO_T prAisFsmInfo = &(prAdapter->rWifiVar.rAisFsmInfo);
 
 	ASSERT(prSwRfb);
 	ASSERT(pu4ControlFlags);
 
 	prBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
 
-	/* 4 <1> Parse Probe Req IE and Get IE ptr (SSID, Supported Rate IE, ...) */
-	prMgtHdr = (P_WLAN_MAC_MGMT_HEADER_T) prSwRfb->pvHeader;
-
-	u2IELength = prSwRfb->u2PacketLen - prSwRfb->u2HeaderLen;
-	pucIE = (PUINT_8) prSwRfb->pvHeader + prSwRfb->u2HeaderLen;
-
-	IE_FOR_EACH(pucIE, u2IELength, u2Offset) {
-		if (ELEM_ID_SSID == IE_ID(pucIE)) {
-			if ((!prIeSsid) && (IE_LEN(pucIE) <= ELEM_MAX_LEN_SSID))
-				prIeSsid = (P_IE_SSID_T) pucIE;
-			break;
-		}
-	}			/* end of IE_FOR_EACH */
-
 	/* 4 <2> Check network conditions */
 
 	if (prBssInfo->eCurrentOPMode == OP_MODE_IBSS) {
+		/* 4 <1> Parse Probe Req IE and Get IE ptr (SSID, Supported Rate IE, ...) */
+		prMgtHdr = (P_WLAN_MAC_MGMT_HEADER_T) prSwRfb->pvHeader;
+
+		u2IELength = prSwRfb->u2PacketLen - prSwRfb->u2HeaderLen;
+		pucIE = (PUINT_8) prSwRfb->pvHeader + prSwRfb->u2HeaderLen;
+
+		IE_FOR_EACH(pucIE, u2IELength, u2Offset) {
+			if (ELEM_ID_SSID == IE_ID(pucIE)) {
+			if ((!prIeSsid) && (IE_LEN(pucIE) <= ELEM_MAX_LEN_SSID))
+				prIeSsid = (P_IE_SSID_T) pucIE;
+				break;
+			}
+		} /* end of IE_FOR_EACH */
 
 		if ((prIeSsid) && ((prIeSsid->ucLength == BC_SSID_LEN) ||	/* WILDCARD SSID */
-				   EQUAL_SSID(prBssInfo->aucSSID, prBssInfo->ucSSIDLen,	/* CURRENT SSID */
-					      prIeSsid->aucSSID, prIeSsid->ucLength))) {
+				EQUAL_SSID(prBssInfo->aucSSID, prBssInfo->ucSSIDLen,	/* CURRENT SSID */
+				prIeSsid->aucSSID, prIeSsid->ucLength))) {
 			fgReplyProbeResp = TRUE;
 		}
+	}
+
+
+	if (prAisFsmInfo->u4AisPacketFilter & PARAM_PACKET_FILTER_PROBE_REQ) {
+		kalIndicateRxMgmtFrame(prAdapter->prGlueInfo, prSwRfb);
 	}
 
 	return fgReplyProbeResp;
@@ -5233,4 +5241,35 @@ ENUM_AIS_STATE_T aisFsmAntSelectScanResultsUpdate(IN P_ADAPTER_T prAdapter)
 
 	return eNextState;
 }
+#endif
+
+
+
+#if CFG_SUPPORT_PROBE_REQ_REPORT
+VOID aisFuncEnableProbeReqReport (IN P_ADAPTER_T prAdapter, IN BOOLEAN fgIsEnable)
+{
+	CMD_ACCESS_REG rCmdAccessReg;
+
+	do {
+		rCmdAccessReg.u4Address = 0x11111113;
+
+		if (fgIsEnable) {
+			rCmdAccessReg.u4Data = 1;
+		} else {
+			rCmdAccessReg.u4Data = 0;
+		}
+
+		wlanSendSetQueryCmd(prAdapter,
+					CMD_ID_ACCESS_REG,
+					TRUE,
+					FALSE,
+					FALSE,
+					NULL,
+					NULL,
+					sizeof(CMD_ACCESS_REG),
+					(PUINT_8)&rCmdAccessReg, NULL, 0);
+
+	} while (FALSE);
+
+}				/* p2pFuncUpdateMgmtFrameRegister */
 #endif

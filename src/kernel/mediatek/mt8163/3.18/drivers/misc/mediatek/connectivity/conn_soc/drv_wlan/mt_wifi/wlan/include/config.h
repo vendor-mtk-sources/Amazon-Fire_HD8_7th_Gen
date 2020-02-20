@@ -1611,6 +1611,13 @@
 #define CFG_IGNORE_1X_CLASS_ERROR 1
 
 #define CFG_SUPPORT_SCAN_CHANNEL_REQUEST   1
+
+#define CFG_SUPPORT_PROBE_REQ_REPORT 1
+
+#define CFG_SUPPORT_AAA_CHECK_NO_SSID 1
+
+#define CFG_SUPPORT_UPDATE_AP_MODE_SSID 1
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************

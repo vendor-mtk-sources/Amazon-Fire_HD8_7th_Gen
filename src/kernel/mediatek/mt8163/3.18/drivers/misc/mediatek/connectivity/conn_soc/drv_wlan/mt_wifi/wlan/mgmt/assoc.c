@@ -1579,6 +1579,9 @@ WLAN_STATUS assocProcessRxAssocReqFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T 
 	mqmProcessAssocReq(prAdapter, prSwRfb, pucIEStart, u2IELength);
 
 	do {
+#if CFG_SUPPORT_AAA_CHECK_NO_SSID
+		DBGLOG(SAA, WARN, "Driver configured to not check SSID field of Assoc Req!\n");
+#else
 		if (prIeSsid) {
 			if (UNEQUAL_SSID(prBssInfo->aucSSID, prBssInfo->ucSSIDLen,
 					 prIeSsid->aucSSID, prIeSsid->ucLength)) {
@@ -1590,7 +1593,7 @@ WLAN_STATUS assocProcessRxAssocReqFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T 
 			u2StatusCode = STATUS_CODE_UNSPECIFIED_FAILURE;
 			break;
 		}
-
+#endif
 		prStaRec->u2OperationalRateSet = 0;
 		prStaRec->u2BSSBasicRateSet = 0;
 

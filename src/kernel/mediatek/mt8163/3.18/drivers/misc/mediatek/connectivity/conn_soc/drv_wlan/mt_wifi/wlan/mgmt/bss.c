@@ -1546,7 +1546,7 @@ WLAN_STATUS bssProcessProbeRequest(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 
 		if (NETWORK_TYPE_AIS_INDEX == eNetTypeIndex) {
 
-#if CFG_SUPPORT_ADHOC
+#if (CFG_SUPPORT_ADHOC || CFG_SUPPORT_PROBE_REQ_REPORT)
 			fgReplyProbeResp = aisValidateProbeReq(prAdapter, prSwRfb, &u4CtrlFlagsForProbeResp);
 #endif
 		}

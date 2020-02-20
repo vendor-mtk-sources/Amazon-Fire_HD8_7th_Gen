@@ -193,6 +193,7 @@ ssize_t BT_write(struct file *filp, const char __user *buf, size_t count, loff_t
 	INT32 retval = 0;
 	INT32 write_size;
 	INT32 written = 0;
+	INT32 len = 0;
 
 	bt_ftrace_print("%s|S,len(%d)\n", __func__, count);
 	down(&wr_mtx);
@@ -218,6 +219,45 @@ ssize_t BT_write(struct file *filp, const char __user *buf, size_t count, loff_t
 		}
 
 		if (copy_from_user(&o_buf[0], &buf[0], write_size)) {
+			retval = -EFAULT;
+			goto OUT;
+		}
+
+		/* Get length by parsing the frame
+		   For more information of frame format,
+		   please refer the BT spec
+		 */
+		switch (o_buf[0]) {
+		case 0x01:
+			/* HCI command, type = 0x01
+			   Type(8b) OpCode(16b) length(8b)
+			   Head length = 1 + 2 + 1
+			 */
+			len = o_buf[3] + 4;
+			break;
+		case 0x02:
+			/* ACL data, type = 0x02
+			   Type(8b) handle+flag(16b) length(16b)
+			   Head length = 1 + 2 + 2
+			 */
+			len = (o_buf[3] | (o_buf[4] << 8)) + 5;
+			break;
+		case 0x03:
+			/* SCO data, type = 0x03
+			   Type(8b) handle+flag(16b) length(8b)
+			   Head length = 1 + 2 + 1
+			 */
+			len = o_buf[3] + 4;
+			break;
+		default:
+			BT_ERR_FUNC("type is %d\n", o_buf[0]);
+			retval = -EFAULT;
+			goto OUT;
+		}
+
+		/* check frame length is valid */
+		if (len != write_size) {
+			BT_ERR_FUNC("length error %d:%d\n", len, write_size);
 			retval = -EFAULT;
 			goto OUT;
 		}

@@ -2658,7 +2658,23 @@ int tx_thread(void *data)
 			P_AIS_FSM_INFO_T prAisFsmInfo = (P_AIS_FSM_INFO_T) NULL;
 			/* printk("prGlueInfo->u4OsMgmtFrameFilter = %x", prGlueInfo->u4OsMgmtFrameFilter); */
 			prAisFsmInfo = &(prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo);
+#if CFG_SUPPORT_PROBE_REQ_REPORT
+			if (prAisFsmInfo->u4AisPacketFilter^prGlueInfo->u4OsMgmtFrameFilter) {
+				/* Filter settings changed. */
+				UINT_32 u4ChangedSettings = prAisFsmInfo->u4AisPacketFilter^prGlueInfo->u4OsMgmtFrameFilter;
+				prAisFsmInfo->u4AisPacketFilter = prGlueInfo->u4OsMgmtFrameFilter;
+
+				if (u4ChangedSettings & PARAM_PACKET_FILTER_PROBE_REQ) {
+					if (prAisFsmInfo->u4AisPacketFilter & PARAM_PACKET_FILTER_PROBE_REQ) {
+						aisFuncEnableProbeReqReport(prGlueInfo->prAdapter, TRUE);
+					} else {
+						aisFuncEnableProbeReqReport(prGlueInfo->prAdapter, FALSE);
+					}
+				}
+			}
+#else
 			prAisFsmInfo->u4AisPacketFilter = prGlueInfo->u4OsMgmtFrameFilter;
+#endif
 		}
 
 		if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
@@ -2702,7 +2718,23 @@ int tx_thread(void *data)
 			P_AIS_FSM_INFO_T prAisFsmInfo = (P_AIS_FSM_INFO_T) NULL;
 			/* printk("prGlueInfo->u4OsMgmtFrameFilter = %x", prGlueInfo->u4OsMgmtFrameFilter); */
 			prAisFsmInfo = &(prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo);
+#if CFG_SUPPORT_PROBE_REQ_REPORT
+			if (prAisFsmInfo->u4AisPacketFilter^prGlueInfo->u4OsMgmtFrameFilter) {
+				/* Filter settings changed. */
+				UINT_32 u4ChangedSettings = prAisFsmInfo->u4AisPacketFilter^prGlueInfo->u4OsMgmtFrameFilter;
+				prAisFsmInfo->u4AisPacketFilter = prGlueInfo->u4OsMgmtFrameFilter;
+
+				if (u4ChangedSettings & PARAM_PACKET_FILTER_PROBE_REQ) {
+					if (prAisFsmInfo->u4AisPacketFilter & PARAM_PACKET_FILTER_PROBE_REQ) {
+						aisFuncEnableProbeReqReport(prGlueInfo->prAdapter, TRUE);
+					} else {
+						aisFuncEnableProbeReqReport(prGlueInfo->prAdapter, FALSE);
+					}
+				}
+			}
+#else
 			prAisFsmInfo->u4AisPacketFilter = prGlueInfo->u4OsMgmtFrameFilter;
+#endif
 		}
 
 		if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {

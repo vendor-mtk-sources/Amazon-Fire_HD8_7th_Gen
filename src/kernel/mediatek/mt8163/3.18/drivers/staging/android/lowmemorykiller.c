@@ -455,7 +455,13 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 /* ACOS_MOD_BEGIN {fwk_crash_log_collection} */
 #ifndef CONFIG_MT_ENG_BUILD
-	if (lmk_log_buffer && selected && selected_oom_score_adj == 0 && !print_extra_info) {
+	/*
+	 * On headless devices tracking foreground adj does not help as there is
+	 * no screen. Include visible adj as well. Note, now lmk_logs will
+	 * update for both foreground and visible adj.
+	 */
+	if (lmk_log_buffer && selected && (selected_oom_score_adj == 0
+	    || selected_oom_score_adj == 1) && !print_extra_info) {
 		print_extra_info = 1;
 		foreground_kill = 1;
 		head = lmk_log_buffer;

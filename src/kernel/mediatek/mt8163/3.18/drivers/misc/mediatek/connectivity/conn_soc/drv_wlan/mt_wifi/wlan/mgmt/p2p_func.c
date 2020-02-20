@@ -1923,17 +1923,19 @@ p2pFuncParseBeaconContent(IN P_ADAPTER_T prAdapter,
 					/* SSID is saved when start AP/GO */
 					/* SSID IE set in beacon from supplicant will not always be */
 					/* the true since hidden SSID case */
-					/*
-					   COPY_SSID(prP2pBssInfo->aucSSID,
-					   prP2pBssInfo->ucSSIDLen,
-					   SSID_IE(pucIE)->aucSSID,
-					   SSID_IE(pucIE)->ucLength);
+					DBGLOG(P2P, TRACE, "SSID update\n");
+					/* CONN-33738, make AP/GO hidden ssid works*/
+#if CFG_SUPPORT_UPDATE_AP_MODE_SSID
+					COPY_SSID(prP2pBssInfo->aucSSID,
+						prP2pBssInfo->ucSSIDLen,
+						SSID_IE(pucIE)->aucSSID,
+						SSID_IE(pucIE)->ucLength);
 
-					   COPY_SSID(prP2pSpecificBssInfo->aucGroupSsid,
-					   prP2pSpecificBssInfo->u2GroupSsidLen,
-					   SSID_IE(pucIE)->aucSSID,
-					   SSID_IE(pucIE)->ucLength);
-					 */
+					COPY_SSID(prP2pSpecificBssInfo->aucGroupSsid,
+						prP2pSpecificBssInfo->u2GroupSsidLen,
+						SSID_IE(pucIE)->aucSSID,
+						SSID_IE(pucIE)->ucLength);
+#endif
 				}
 				break;
 			case ELEM_ID_SUP_RATES:
