@@ -521,14 +521,14 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 		musb_readb(musb->mregs, MUSB_INTRUSB) & musb_readb(musb->mregs, MUSB_INTRUSBE);
 	musb->int_tx = musb_readw(musb->mregs, MUSB_INTRTX) & musb_readw(musb->mregs, MUSB_INTRTXE);
 	musb->int_rx = musb_readw(musb->mregs, MUSB_INTRRX) & musb_readw(musb->mregs, MUSB_INTRRXE);
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	musb->int_queue = musb_readl(musb->mregs, MUSB_QISAR);
 #endif
 	mb(); /* */
 	musb_writew(musb->mregs, MUSB_INTRRX, musb->int_rx);
 	musb_writew(musb->mregs, MUSB_INTRTX, musb->int_tx);
 	musb_writeb(musb->mregs, MUSB_INTRUSB, musb->int_usb);
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	if (musb->int_queue) {
 		musb_writel(musb->mregs, MUSB_QISAR, musb->int_queue);
 		musb->int_queue &= ~(musb_readl(musb->mregs, MUSB_QIMR));
@@ -536,7 +536,7 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 #endif
 	/* musb_read_clear_generic_interrupt */
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	if (musb->int_usb || musb->int_tx || musb->int_rx || musb->int_queue)
 		retval = musb_interrupt(musb);
 #else
@@ -563,7 +563,7 @@ static irqreturn_t mt_usb_interrupt(int irq, void *dev_id)
 
 	if ((usb_l1_ints & TX_INT_STATUS) || (usb_l1_ints & RX_INT_STATUS)
 			|| (usb_l1_ints & USBCOM_INT_STATUS)
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 			|| (usb_l1_ints & QINT_STATUS)
 #endif
 	) {
@@ -1132,7 +1132,7 @@ static int mt_usb_init(struct musb *musb)
 	musb_writel(musb->mregs, MUSB_HSDMA_INTR, 0xff | (0xff << DMA_INTR_UNMASK_SET_OFFSET));
 	DBG(0, "musb platform init %x\n", musb_readl(musb->mregs, MUSB_HSDMA_INTR));
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	/* FIXME, workaround for device_qmu + host_dma */
 	musb_writel(musb->mregs, USB_L1INTM,
 							TX_INT_STATUS | RX_INT_STATUS | USBCOM_INT_STATUS |

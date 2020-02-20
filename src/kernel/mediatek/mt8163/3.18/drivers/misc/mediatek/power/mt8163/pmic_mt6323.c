@@ -910,7 +910,7 @@ static irqreturn_t pwrkey_int_handler(int irq, void *dev_id)
 		chip->pressed = 1;
 		pr_notice("[pwrkey_int_handler] Press pwrkey\n");
 #if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
-		#if defined(CONFIG_rsa123)
+		#if defined(CONFIG_ROOK)
 		if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
 			pr_notice
 				("Power Key Pressed during kernel power off charging, reboot OS\r\n");
@@ -974,9 +974,7 @@ static irqreturn_t chrdet_int_handler(int irq, void *dev_id)
 		    || boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
 			pr_notice
 			    ("Unplug Charger/USB In Kernel Power Off Charging Mode!  Shutdown OS!\r\n");
-			#ifdef CONFIG_MTK_RTC
-			mt_power_off();
-			#endif
+			kernel_power_off();
 		}
 	}
 #endif
@@ -1791,6 +1789,7 @@ static int saved_cmdline_append(void)
 		strcpy(temp_strptr, saved_command_line);
 		strcat(temp_strptr, " androidboot.mode=charger");
 		saved_command_line = temp_strptr;
+		pr_err("**************BOOTING INTO LOW POWER OR KPOC MODE*******************\n");
 	}
 	return 0;
 }

@@ -57,7 +57,7 @@ int wifi_enable_throttle(struct thermal_cooling_device *cdev, int state)
 
 #ifdef CONFIG_AMAZON_METRICS_LOG
 	snprintf(buf, METRICS_STR_LEN,
-		"%s:cooler_%s_throttling,state=%d;level=%d;CT;1:NR",
+		"%s:cooler_%s_throttling_state=%d;CT;1,level=%d;CT;1:NR",
 		PREFIX, cdev->type, state, cdev_level);
 	log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
 #endif

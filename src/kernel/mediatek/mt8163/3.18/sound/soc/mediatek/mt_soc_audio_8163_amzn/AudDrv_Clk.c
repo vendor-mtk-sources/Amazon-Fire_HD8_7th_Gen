@@ -763,13 +763,16 @@ void AudDrv_APLL24M_Clk_On(void)
 			pr_err("%s clk_set_parent %s-%s fail %d\n",
 				__func__, aud_clks[CLOCK_MUX_AUD_2].name,
 				aud_clks[CLOCK_TOP_APLL2_CK].name, ret);
-
-
+#if 0
+		/* 98304000 98303999 */
 		ret = clk_set_rate(aud_clks[CLOCK_TOP_APLL2_CK].clock, 98303999);
 		if (ret) {
 			pr_err("%s clk_set_rate %s-98303000 fail %d\n",
 				__func__, aud_clks[CLOCK_TOP_APLL2_CK].name, ret);
 		}
+#endif
+		SetpllCfg(AUD2PLL_CON1, 0xbc7ea932, 0xFFFFFFFF);
+		SetpllCfg(AUD2PLL_CON3, 0x3c7ea933, 0xFFFFFFFF);
 
 #ifdef CONFIG_SND_I2S_MCLK
 		ret = clk_prepare_enable(aud_clks[CLOCK_AUDIO_24M].clock);
@@ -1029,7 +1032,7 @@ void AudDrv_APLL1Tuner_Clk_On(void)
 #endif
 #endif
 		Afe_Set_Reg(AFE_APLL1_TUNER_CFG, 0x00008033, 0x0000FFF7);
-		SetpllCfg(AP_PLL_CON5, 1 << 0, 1 << 0);
+		SetpllCfg(AP_PLL_CON5, 0x1 << 10, 0x1 << 10);
 	}
 	Aud_APLL1_Tuner_cntr++;
 	spin_unlock_irqrestore(&auddrv_Clk_lock, flags);
@@ -1060,7 +1063,7 @@ void AudDrv_APLL1Tuner_Clk_Off(void)
 		Afe_Set_Reg(AUDIO_TOP_CON0, 0x1 << 19, 0x1 << 19);
 #endif
 #endif
-		SetpllCfg(AP_PLL_CON5, 0 << 0, 1 << 0);
+		SetpllCfg(AP_PLL_CON5, 0x0 << 10, 0x1 << 10);
 		/* Afe_Set_Reg(AFE_APLL1_TUNER_CFG, 0x00000033, 0x1 << 19); */
 	}
 	/* handle for clock error */
@@ -1116,8 +1119,8 @@ void AudDrv_APLL2Tuner_Clk_On(void)
 		Afe_Set_Reg(AUDIO_TOP_CON0, 0x0 << 18, 0x1 << 18);
 #endif
 #endif
-		Afe_Set_Reg(AFE_APLL2_TUNER_CFG, 0x00000035, 0x0000FFF7);
-		SetpllCfg(AP_PLL_CON5, 1 << 1, 1 << 1);
+		Afe_Set_Reg(AFE_APLL2_TUNER_CFG, 0x00000435, 0x0000FFF7);
+		SetpllCfg(AP_PLL_CON5, 0x1 << 11, 0x1 << 11);
 	}
 	Aud_APLL2_Tuner_cntr++;
 	spin_unlock_irqrestore(&auddrv_Clk_lock, flags);
@@ -1147,7 +1150,7 @@ void AudDrv_APLL2Tuner_Clk_Off(void)
 		Afe_Set_Reg(AUDIO_TOP_CON0, 0x1 << 18, 0x1 << 18);
 #endif
 #endif
-		SetpllCfg(AP_PLL_CON5, 0 << 0, 0 << 0);
+		SetpllCfg(AP_PLL_CON5, 0x0 << 11, 0x1 << 11);
 	}
 	/* handle for clock error */
 	else if (Aud_APLL2_Tuner_cntr < 0) {

@@ -5574,6 +5574,7 @@ EXIT:
 			g_IspInfo.UserCount, current->comm, current->pid, current->tgid);
 
 		ISP_EnableClock(MTRUE, 1);
+		ISP_WR32((void *)ISP_REG_ADDR_TG_VF_CON, 0);
 		LOG_DBG_IF("isp open g_EnableClkCnt:	%d", g_EnableClkCnt);
 	}
 
@@ -5655,6 +5656,7 @@ EXIT:
 	 *  1. clkmgr: G_u4EnableClockCount=0, call clk_enable/disable
 	 *  2. CCF: call clk_enable/disable every time
 	 */
+	ISP_WR32((void *)ISP_REG_ADDR_TG_VF_CON, 0);
 	ISP_EnableClock(MFALSE, 1);
 	LOG_DBG_IF("-,UserCount(%d), g_EnableClkCnt(%d)", g_IspInfo.UserCount, g_EnableClkCnt);
 	return 0;

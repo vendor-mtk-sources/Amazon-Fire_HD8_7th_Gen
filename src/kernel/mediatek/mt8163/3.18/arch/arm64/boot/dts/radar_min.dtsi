@@ -6,6 +6,10 @@
 /delete-node/ &consys;
 /delete-node/ &usb0;
 /delete-node/ &accdet;
+
+/delete-node/ &codec;
+/delete-node/ &wifi;
+
 /delete-node/ &cpu1;
 /delete-node/ &cpu2;
 /delete-node/ &cpu3;

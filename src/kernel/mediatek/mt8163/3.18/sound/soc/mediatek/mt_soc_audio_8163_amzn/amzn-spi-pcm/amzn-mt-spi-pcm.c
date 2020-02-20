@@ -29,6 +29,9 @@
 
 #ifdef CONFIG_AMAZON_METRICS_LOG
 #include <linux/metricslog.h>
+#define OVERRUN_METRICS_STR_LEN 128
+/* 16ms */
+#define METRIC_DELAY_JIFFIES msecs_to_jiffies(16)
 #endif
 
 #include "dough.h"
@@ -67,7 +70,10 @@ struct amzn_spi_priv {
 	struct work_struct spi_work;
 #ifdef CONFIG_AMAZON_METRICS_LOG
 	struct workqueue_struct *metrics_wq;
-	struct work_struct metrics_work;
+	struct delayed_work metrics_kernel_work;
+	struct delayed_work metrics_fpga_work;
+	size_t kernel_overruns;
+	size_t fpga_overruns;
 #endif
 	struct snd_pcm_substream *substream;
 	uint8_t *dma_vaddr;
@@ -85,11 +91,8 @@ struct amzn_spi_priv {
 
 static void spi_data_read(struct work_struct *work);
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
-static void overrun_to_metrics(struct work_struct *work);
-#endif
-
-static int transfer_timestamps_enab = SPI_HEADER;
+/* Disable timestamp transfer by default */
+static int transfer_timestamps_enab = SPI_HEADER_DISABLE;
 
 /* TODO(DEE-30199): Remove global decalartaion */
 static struct amzn_spi_priv spi_data;
@@ -236,6 +239,38 @@ static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 	.list = soc_normal_supported_sample_rates,
 };
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+static void kernel_overrun_metrics(struct work_struct *work)
+{
+	char buf[OVERRUN_METRICS_STR_LEN];
+
+	/* No need of logging 0 overruns */
+	if (spi_data.kernel_overruns) {
+		snprintf(buf, OVERRUN_METRICS_STR_LEN,
+			"amzn-mt-spi-pcm:KernelOverrun:num=%lu;CT;1:NR",
+			 spi_data.kernel_overruns);
+
+		log_to_metrics(ANDROID_LOG_WARN, "AudioRecordOverrun", buf);
+		spi_data.kernel_overruns = 0;
+	}
+}
+
+static void fpga_overrun_metrics(struct work_struct *work)
+{
+	char buf[OVERRUN_METRICS_STR_LEN];
+
+	/* No need of logging 0 overruns */
+	if (spi_data.fpga_overruns) {
+		snprintf(buf, OVERRUN_METRICS_STR_LEN,
+			"amzn-mt-spi-pcm:FPGAOverrun:num=%lu;CT;1:NR",
+			 spi_data.fpga_overruns);
+
+		log_to_metrics(ANDROID_LOG_WARN, "AudioRecordOverrun", buf);
+		spi_data.fpga_overruns = 0;
+	}
+}
+#endif
+
 /*
  * ASoC Platform driver
  */
@@ -349,7 +384,10 @@ static int amzn_mt_spi_pcm_open(struct snd_pcm_substream *substream)
 	spi_data.substream = substream;
 	INIT_WORK(&(spi_data.spi_work), spi_data_read);
 #ifdef CONFIG_AMAZON_METRICS_LOG
-	INIT_WORK(&(spi_data.metrics_work), overrun_to_metrics);
+	INIT_DELAYED_WORK(&(spi_data.metrics_kernel_work),
+		kernel_overrun_metrics);
+	INIT_DELAYED_WORK(&(spi_data.metrics_fpga_work),
+		fpga_overrun_metrics);
 #endif
 	return 0;
 }
@@ -523,10 +561,6 @@ static void spi_data_read(struct work_struct *work)
 	int ret = 0, iter_count = 0;
 	uint32_t prev_fpga_ts = 0;
 
-#ifdef CONFIG_SPI_AFFINITY
-	struct cpumask affinity_mask;
-#endif
-
 	pr_info("%s\n", __func__);
 	tx_df = kzalloc(sizeof(struct dough_frame), GFP_KERNEL | GFP_DMA);
 #ifdef SPI_USES_LOCAL_DMA
@@ -542,6 +576,8 @@ static void spi_data_read(struct work_struct *work)
 	spi_priv_data->cur_write_offset = 0;
 	spi_priv_data->keep_copying = true;
 	elapsed_threshold = SPI_BYTES_PER_PERIOD;
+	spi_priv_data->fpga_overruns = 0;
+	spi_priv_data->kernel_overruns = 0;
 	set_run_thread(true);
 	kworker_info = current_thread_info();
 	if (kworker_info == NULL) {
@@ -555,13 +591,6 @@ static void spi_data_read(struct work_struct *work)
 	}
 	sched_setscheduler(kworker_task, SCHED_FIFO, &param);
 
-#ifdef CONFIG_SPI_AFFINITY
-	cpumask_clear(&affinity_mask);
-	cpumask_set_cpu(1, &affinity_mask);
-	if (sched_setaffinity(kworker_task->pid, &affinity_mask) == -1) {
-		pr_err("%s: could not set CPU affinity.\n", __func__);
-	}
-#endif
 	cur_ktime = ktime_get_raw();
 	/* Initialize with the same value*/
 	prev_ktime = cur_ktime;
@@ -610,7 +639,7 @@ static void spi_data_read(struct work_struct *work)
 			slept_duration = ktime_diff(&prev_ktime, &sleep_ktime);
 			/* Time spent in last spi transaction */
 			spi_duration =  ktime_diff(&cur_ktime, &prev_ktime);
-			pr_err("%s: FPGA_OVERRUN mode=%d dacOff=%d adcOff=%d frames=%d Wroff=%lu new_ts=%u diff_ts=%u prev_cycle_us=%lu curr_cycle_us=%lu slept_us=%lu spi_trx_us=%lu\n",
+			pr_err("%s: FPGA_OVERRUN mode=%d dacOff=%d adcOff=%d frames=%d Wroff=%lu new_ts=%u diff_ts=%u prev_cycle_us=%lu curr_cycle_us=%lu slept_us=%lu spi_trx_us=%lu overruns=%lu\n",
 				__func__, rx_df->dsf.mode,
 				rx_df->dsf.dac_inactive,
 				rx_df->dsf.i2s_inactive,
@@ -619,7 +648,15 @@ static void spi_data_read(struct work_struct *work)
 				rx_df->dsf.timestamp_48mhz,
 				(rx_df->dsf.timestamp_48mhz - prev_fpga_ts),
 				time_diff_usec, overrun_duration,
-				slept_duration, spi_duration);
+				slept_duration, spi_duration,
+				++spi_priv_data->fpga_overruns);
+#ifdef CONFIG_AMAZON_METRICS_LOG
+			 /* All overruns occurring within METRIC_DELAY_JIFFIES
+			  * will log once since this doesn't queue same work */
+			 queue_delayed_work(spi_priv_data->metrics_wq,
+			    &(spi_priv_data->metrics_fpga_work),
+				METRIC_DELAY_JIFFIES);
+#endif
 		}
 
 		if (!get_run_thread()) {
@@ -723,21 +760,17 @@ fail:
 		wakeup_minlat, wakeup_maxlat);
 }
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
-static void overrun_to_metrics(struct work_struct *work)
-{
-	log_to_metrics(ANDROID_LOG_ERROR, "AudioRecordOverrun",
-		"amzn-mt-spi-pcm:Overrun:num=1;CT;1:NR");
-}
-#endif
-
 static int amzn_mt_spi_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	pr_info("%s: cmd=%d\n", __func__, cmd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
+#ifdef CONFIG_MTK_SPI_AFFINITY
+		queue_work_on(1, spi_data.spi_wq, &(spi_data.spi_work));
+#else
 		queue_work(spi_data.spi_wq, &(spi_data.spi_work));
+#endif
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -796,12 +829,15 @@ static int amzn_mt_spi_pcm_copy(struct snd_pcm_substream *substream,
 
 	if ((spi_data.cur_write_offset < end) &&
 	(spi_data.cur_write_offset > src_offset)) {
-		pr_err("%s: KERNEL_OVERRUN: pos=%lu count=%lu elasped=%lu src_offset(%lu)+bytes_to_cpy(%lu)= end(%lu) while: WrOff=%lu\n",
+		pr_err("%s: KERNEL_OVERRUN: pos=%lu count=%lu elasped=%lu src_offset(%lu)+bytes_to_cpy(%lu)= end(%lu) while: WrOff=%lu overruns=%lu\n",
 			__func__, pos, count, spi_data.elapsed,
 			src_offset, bytes_to_cpy, end,
-			spi_data.cur_write_offset);
+			spi_data.cur_write_offset, ++spi_data.kernel_overruns);
 #ifdef CONFIG_AMAZON_METRICS_LOG
-		queue_work(spi_data.metrics_wq, &(spi_data.metrics_work));
+		/* All overruns occurring within METRIC_DELAY_JIFFIES will
+		* log once since queue_delayed_work() doesn't queue same work */
+		queue_delayed_work(spi_data.metrics_wq,
+			&(spi_data.metrics_kernel_work), METRIC_DELAY_JIFFIES);
 #endif
 	}
 #ifdef SPI_DATA_DEBUG
@@ -896,7 +932,7 @@ static int amzn_mt_spi_probe(struct spi_device *spi)
 	size_t bytes;
 	void *fw_buf;
 	/* TODO: Enable it for all products */
-#ifdef CONFIG_rsa123
+#ifdef CONFIG_ROOK
 	struct regulator *reg = NULL;
 	int volt, reg_status_before = 0, reg_status_after;
 #endif
@@ -907,7 +943,7 @@ static int amzn_mt_spi_probe(struct spi_device *spi)
 
 	pr_info("%s\n", __func__);
 
-#ifdef CONFIG_rsa123
+#ifdef CONFIG_ROOK
 	/* VCCIO2 Enabled */
 	reg = devm_regulator_get(&spi->dev, "vcamaf");
 	if (IS_ERR(reg)) {

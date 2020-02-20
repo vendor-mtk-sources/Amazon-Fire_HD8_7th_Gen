@@ -88,10 +88,12 @@ static bool mModemPcm_ASRC_on;
 #endif
 
 static bool AudioI2S1Setting;
+#ifndef CONFIG_MT_SND_SOC_8163_AMZN
 static bool mHplCalibrated;
 static int mHplOffset;
 static bool mHprCalibrated;
 static int mHprOffset;
+#endif
 static bool AudDrvSuspend_ipoh_Status;
 static bool Audio_DacMux_Output;
 static bool Audio_LineOut_Enable;
@@ -651,7 +653,7 @@ static int Audio_Irqcnt2_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 #if 0
 static struct snd_dma_buffer *Dl1_Playback_dma_buf;
 #endif
-
+#ifndef CONFIG_MT_SND_SOC_8163_AMZN
 static void GetAudioTrimOffset(int channels)
 {
 	int Buffer_on_value = 0, Buffer_offl_value = 0, Buffer_offr_value = 0;
@@ -771,7 +773,7 @@ static int Audio_Hpr_Offset_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 #endif
 	return 0;
 }
-
+#endif
 static const struct soc_enum Audio_Routing_Enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(DAC_DL_SIDEGEN), DAC_DL_SIDEGEN),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(DAC_DL_SIDEGEN_SAMEPLRATE), DAC_DL_SIDEGEN_SAMEPLRATE),
@@ -802,10 +804,12 @@ static const struct snd_kcontrol_new Audio_snd_routing_controls[] = {
 		       Audio_Irqcnt1_Set),
 	SOC_SINGLE_EXT("Audio IRQ2 CNT", SND_SOC_NOPM, 0, 65536, 0, Audio_Irqcnt2_Get,
 		       Audio_Irqcnt2_Set),
+#ifndef CONFIG_MT_SND_SOC_8163_AMZN
 	SOC_SINGLE_EXT("Audio HPL Offset", SND_SOC_NOPM, 0, 0x20000, 0, Audio_Hpl_Offset_Get,
 		       Audio_Hpl_Offset_Set),
 	SOC_SINGLE_EXT("Audio HPR Offset", SND_SOC_NOPM, 0, 0x20000, 0, Audio_Hpr_Offset_Get,
 		       Audio_Hpr_Offset_Set),
+#endif
 #if 0
 	SOC_ENUM_EXT("InterModemPcm_ASRC_Switch", Audio_Routing_Enum[5], Audio_ModemPcm_ASRC_Get,
 		     Audio_ModemPcm_ASRC_Set),

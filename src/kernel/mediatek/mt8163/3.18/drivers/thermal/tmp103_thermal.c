@@ -125,8 +125,8 @@ static int tmp103_thermal_get_temp(struct thermal_zone_device *thermal,
 		and 2 mins wheny throttling */
 	if (!(count & mask)) {
 		snprintf(buf, TMP103_METRICS_STR_LEN,
-			"%s:pcb_temp=%ld;CT;1:NR",
-			PREFIX, tempv);
+			"%s:%s_sensor_temp=%ld;CT;1:NR",
+			PREFIX, thermal->type, tempv);
 		log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
 	}
 
@@ -249,12 +249,38 @@ static int tmp103_thermal_set_trip_hyst(struct thermal_zone_device *thermal,
 	pdata->trips[trip].hyst = hyst;
 	return 0;
 }
+
+void last_kmsg_thermal_shutdown(void)
+{
+	int rc;
+	char *argv[] = {
+		"/sbin/crashreport",
+		"thermal_shutdown",
+		NULL
+	};
+
+	pr_err("%s: start to save last kmsg\n", __func__);
+	/* UMH_WAIT_PROC UMH_WAIT_EXEC */
+	rc = call_usermodehelper(argv[0], argv, NULL, UMH_WAIT_EXEC);
+	pr_err("%s: save last kmsg finish\n", __func__);
+
+	if (rc < 0)
+		pr_err("call /sbin/crashreport failed, rc = %d\n", rc);
+
+	msleep(6000); /* 6000ms */
+}
+EXPORT_SYMBOL_GPL(last_kmsg_thermal_shutdown);
+
 static int tmp103_thermal_notify(struct thermal_zone_device *thermal,
 				 int trip,
 				 enum thermal_trip_type type)
 {
 	char data[20];
 	char *envp[] = { data, NULL};
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	char buf[TMP103_METRICS_STR_LEN];
+#endif
+
 	snprintf(data, sizeof(data), "%s", "SHUTDOWN_WARNING");
 	kobject_uevent_env(&thermal->device.kobj, KOBJ_CHANGE, envp);
 
@@ -262,6 +288,22 @@ static int tmp103_thermal_notify(struct thermal_zone_device *thermal,
 	if (type == THERMAL_TRIP_CRITICAL)
 		life_cycle_set_thermal_shutdown_reason(THERMAL_SHUTDOWN_REASON_PCB);
 #endif
+
+#ifdef CONFIG_THERMAL_DOUGLAS
+	pr_err("%s: thermal_shutdown notify\n", __func__);
+	last_kmsg_thermal_shutdown();
+	pr_err("%s: thermal_shutdown notify end\n", __func__);
+#endif
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	if (type == THERMAL_TRIP_CRITICAL) {
+		snprintf(buf, TMP103_METRICS_STR_LEN,
+			"%s:thermal_shutdown_cpu_%s_sensor_temp=%d;CT;1,trip=%d;CT;1:NR",
+			PREFIX, thermal->type, thermal->temperature, trip);
+		log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+	}
+#endif
+
 	return 0;
 }
 static struct thermal_zone_device_ops tmp103_tz_dev_ops = {

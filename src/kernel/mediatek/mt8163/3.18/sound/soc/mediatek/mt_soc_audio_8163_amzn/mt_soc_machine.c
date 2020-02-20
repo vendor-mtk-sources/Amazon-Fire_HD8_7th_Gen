@@ -855,9 +855,9 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf, size_t cou
 		       Afe_Get_Reg(AFE_ADDA4_NEWIF_CFG1));
 
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_AUDDIV_0  = 0x%x\n",
-		       GetClkCfg(AUDIO_CLK_AUDDIV_0));
+		       Afe_Get_Reg(AUDIO_CLK_AUDDIV_0));
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_AUDDIV_1  = 0x%x\n",
-		       GetClkCfg(AUDIO_CLK_AUDDIV_1));
+		       Afe_Get_Reg(AUDIO_CLK_AUDDIV_1));
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_CFG_6      = 0x%x\n",
 		       GetClkCfg(AUDIO_CLK_CFG_6));
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_CFG_6_SET  = 0x%x\n",
@@ -871,6 +871,13 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf, size_t cou
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_AUD_DIV2   = 0x%x\n",
 		       GetClkCfg(AUDIO_CLK_AUD_DIV2));
 	n += scnprintf(buffer + n, size - n, "AP_PLL_CON5   = 0x%x\n", GetpllCfg(AP_PLL_CON5));
+
+	n += scnprintf(buffer + n, size - n, "AUD2PLL_CON1	= 0x%x\n",
+				GetpllCfg(AUD2PLL_CON1));
+	n += scnprintf(buffer + n, size - n, "AUD2PLL_CON3   = 0x%x\n",
+				GetpllCfg(AUD2PLL_CON3));
+	n += scnprintf(buffer + n, size - n, "AUD2PLL_CON2   = 0x%x\n",
+				GetpllCfg(AUD2PLL_CON2));
 
 	n += scnprintf(buffer + n, size - n, "AFE_HDMI_BASE  = 0x%x\n", Afe_Get_Reg(AFE_HDMI_BASE));
 	n += scnprintf(buffer + n, size - n, "AFE_HDMI_CUR  = 0x%x\n", Afe_Get_Reg(AFE_HDMI_CUR));

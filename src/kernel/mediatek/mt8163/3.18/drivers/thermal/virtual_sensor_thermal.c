@@ -34,6 +34,13 @@
 #include <linux/platform_data/mtk_thermal.h>
 #include <linux/thermal_framework.h>
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+#define METRICS_PREFIX "VirtualSensor:Thermal"
+#define TMP103_METRICS_STR_LEN 128
+#define METRICS_MASK 0x6FFF
+#endif
+
 #include "thermal_core.h"
 
 #define VIRTUAL_SENSOR_TEMP_CRIT 75000
@@ -41,7 +48,6 @@
 #define THERMAL_NAME "tmp103"
 #define BUF_SIZE 128
 #define DMF 1000
-#define MASK (0x00FF)
 
 static DEFINE_MUTEX(therm_lock);
 
@@ -57,10 +63,13 @@ struct virtual_sensor_thermal_zone {
 };
 
 static struct mtk_thermal_platform_data virtual_sensor_0_thermal_data = {
-	.num_trips = 7,
+	.num_trips = 9,
 	.mode = THERMAL_DEVICE_DISABLED,
 	.polling_delay = 1000,
 	.shutdown_wait = 10000,
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	.metrics_count = 0,
+#endif
 	.ts_list = LIST_HEAD_INIT(virtual_sensor_0_thermal_data.ts_list),
 	.trips[0] = {.temp = 59500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
@@ -100,7 +109,7 @@ static struct mtk_thermal_platform_data virtual_sensor_0_thermal_data = {
 	},
 	.trips[2] = {.temp = 60000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
-			.type = "thermal-cpufreq-2", .upper = 3, .lower = 2},
+			.type = "thermal-cpufreq-2", .upper = 3, .lower = 1},
 		     .cdev[1] = {
 			.type = "thermal-cpufreq-3", .upper = 7, .lower = 6},
 		     .cdev[2] = {
@@ -118,7 +127,7 @@ static struct mtk_thermal_platform_data virtual_sensor_0_thermal_data = {
 	},
 	.trips[3] = {.temp = 60250, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
-			.type = "thermal-cpufreq-2", .upper = 5, .lower = 3},
+			.type = "thermal-cpufreq-2", .upper = 4, .lower = 2},
 		     .cdev[1] = {
 			.type = "thermal-cpufreq-3", .upper = 7, .lower = 7},
 		     .cdev[2] = {
@@ -136,7 +145,7 @@ static struct mtk_thermal_platform_data virtual_sensor_0_thermal_data = {
 	},
 	.trips[4] = {.temp = 60500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
-			.type = "thermal-cpufreq-2", .upper = 6, .lower = 5},
+			.type = "thermal-cpufreq-2", .upper = 5, .lower = 3},
 		     .cdev[1] = {
 			.type = "thermal-cpufreq-3", .upper = 7, .lower = 7},
 		     .cdev[2] = {
@@ -154,7 +163,7 @@ static struct mtk_thermal_platform_data virtual_sensor_0_thermal_data = {
 	},
 	.trips[5] = {.temp = 61000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
-			.type = "thermal-cpufreq-2", .upper = 7, .lower = 6},
+			.type = "thermal-cpufreq-2", .upper = 6, .lower = 4},
 		     .cdev[1] = {
 			.type = "thermal-cpufreq-3", .upper = 7, .lower = 7},
 		     .cdev[2] = {
@@ -170,41 +179,88 @@ static struct mtk_thermal_platform_data virtual_sensor_0_thermal_data = {
 		     .cdev[7] = {
 			.type = "wifi", .upper = 5, .lower = 4},
 	},
-	.trips[6] = {.temp = VIRTUAL_SENSOR_TEMP_CRIT,
+	.trips[6] = {.temp = 62000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+		     .cdev[0] = {
+			.type = "thermal-cpufreq-2", .upper = 7, .lower = 5},
+		     .cdev[1] = {
+			.type = "thermal-cpufreq-3", .upper = 7, .lower = 7},
+		     .cdev[2] = {
+			.type = "thermal-cpu1-hp-0", .upper = 0, .lower = 0},
+		     .cdev[3] = {
+			.type = "thermal-cpu2-hp-1", .upper = 0, .lower = 0},
+		     .cdev[4] = {
+			.type = "thermal-cpu3-hp-2", .upper = 0, .lower = 0},
+		     .cdev[5] = {
+			.type = "thermal-gpufreq", .upper = 5, .lower = 4},
+		     .cdev[6] = {
+			.type = "thermal-audio", .upper = 6, .lower = 5},
+		     .cdev[7] = {
+			.type = "wifi", .upper = 6, .lower = 5},
+	},
+	.trips[7] = {.temp = 63000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+		     .cdev[0] = {
+			.type = "thermal-cpufreq-2", .upper = 8, .lower = 6},
+		     .cdev[1] = {
+			.type = "thermal-cpufreq-3", .upper = 7, .lower = 7},
+		     .cdev[2] = {
+			.type = "thermal-cpu1-hp-0", .upper = 0, .lower = 0},
+		     .cdev[3] = {
+			.type = "thermal-cpu2-hp-1", .upper = 0, .lower = 0},
+		     .cdev[4] = {
+			.type = "thermal-cpu3-hp-2", .upper = 0, .lower = 0},
+		     .cdev[5] = {
+			.type = "thermal-gpufreq", .upper = 6, .lower = 5},
+		     .cdev[6] = {
+			.type = "thermal-audio", .upper = 7, .lower = 6},
+		     .cdev[7] = {
+			.type = "wifi", .upper = 7, .lower = 6},
+	},
+	.trips[8] = {.temp = VIRTUAL_SENSOR_TEMP_CRIT,
 			.type = THERMAL_TRIP_CRITICAL, .hyst = 0},
 };
 
 static struct mtk_thermal_platform_data virtual_sensor_1_thermal_data = {
-	.num_trips = 7,
+	.num_trips = 9,
 	.mode = THERMAL_DEVICE_DISABLED,
 	.polling_delay = 1000,
 	.shutdown_wait = 10000,
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	.metrics_count = 0,
+#endif
 	.ts_list = LIST_HEAD_INIT(virtual_sensor_1_thermal_data.ts_list),
-	.trips[0] = {.temp = 59500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+	.trips[0] = {.temp = 43000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
 			.type = "lcd-backlight", .upper = 0, .lower = 0},
 	},
-	.trips[1] = {.temp = 59750, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+	.trips[1] = {.temp = 48000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
 			.type = "lcd-backlight", .upper = 2, .lower = 0},
 	},
-	.trips[2] = {.temp = 60000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+	.trips[2] = {.temp = 50000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
 			.type = "lcd-backlight", .upper = 3, .lower = 1},
 	},
-	.trips[3] = {.temp = 60250, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+	.trips[3] = {.temp = 52000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
 			.type = "lcd-backlight", .upper = 4, .lower = 2},
 	},
-	.trips[4] = {.temp = 60500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+	.trips[4] = {.temp = 55000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
 			.type = "lcd-backlight", .upper = 5, .lower = 3},
 	},
-	.trips[5] = {.temp = 61000, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+	.trips[5] = {.temp = 55500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
 		     .cdev[0] = {
 			.type = "lcd-backlight", .upper = 6, .lower = 4},
 	},
-	.trips[6] = {.temp = VIRTUAL_SENSOR_TEMP_CRIT,
+	.trips[6] = {.temp = 55500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+		     .cdev[0] = {
+			.type = "lcd-backlight", .upper = 7, .lower = 5},
+	},
+	.trips[7] = {.temp = 55500, .type = THERMAL_TRIP_ACTIVE, .hyst = 0,
+		     .cdev[0] = {
+			.type = "lcd-backlight", .upper = 8, .lower = 6},
+	},
+	.trips[8] = {.temp = VIRTUAL_SENSOR_TEMP_CRIT,
 			.type = THERMAL_TRIP_CRITICAL, .hyst = 0},
 };
 
@@ -293,6 +349,11 @@ static int virtual_sensor_thermal_get_temp(struct thermal_zone_device *thermal,
 	long temp = 0;
 	long tempv = 0;
 	int alpha, offset, weight;
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	char buf[TMP103_METRICS_STR_LEN];
+	struct device_node *node = NULL;
+	int aux_channel = 0;
+#endif
 
 	if (!tzone)
 		return -EINVAL;
@@ -301,14 +362,29 @@ static int virtual_sensor_thermal_get_temp(struct thermal_zone_device *thermal,
 	if (!pdata)
 		return -EINVAL;
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	pdata->metrics_count++;
+#endif
+
 	list_for_each_entry(tdev, &pdata->ts_list, node) {
 		if (strcmp("virtual_sensor_thermistor", tdev->name))
-		    continue;
+			continue;
 		temp = tdev->dev_ops->get_temp(tdev);
 		alpha = tdev->tdp->alpha;
 		offset = tdev->tdp->offset;
 		weight = tdev->tdp->weight;
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+		if (!(pdata->metrics_count & METRICS_MASK)) {
+			node = tdev->dev->of_node;
+			of_property_read_u32(node, "aux_channel_num",
+						&aux_channel);
+			snprintf(buf, TMP103_METRICS_STR_LEN,
+				"Thermistor:Thermal:pcb_temp.%d=%lu;CT;1:NR",
+				aux_channel, temp);
+			log_to_metrics(ANDROID_LOG_INFO, "ThermalMetrics", buf);
+		}
+#endif
 		pr_debug("%s %s t=%ld a=%d o=%d w=%d\n",
 		       __func__,
 		       tdev->name,
@@ -328,6 +404,17 @@ static int virtual_sensor_thermal_get_temp(struct thermal_zone_device *thermal,
 
 		pr_debug("%s tempv=%ld\n", __func__, tempv);
 	}
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	if (!(pdata->metrics_count & METRICS_MASK)) {
+		snprintf(buf, TMP103_METRICS_STR_LEN,
+			"%s:%s=%lu;CT;1:NR",
+			METRICS_PREFIX, tzone->tz->type, tempv);
+		log_to_metrics(ANDROID_LOG_INFO, "ThermalMetrics", buf);
+		pdata->metrics_count = 0;
+	}
+#endif
+
 	*t = tempv; /* back to unsigned expected by linux framework */
 	return 0;
 }
@@ -462,8 +549,8 @@ static int virtual_sensor_thermal_notify(struct thermal_zone_device *thermal,
 					 int trip,
 					 enum thermal_trip_type type)
 {
-	char data[20];
-	char *envp[] = {data, NULL};
+	char data[2][25];
+	char *envp[] = { data[0], data[1], NULL };
 	struct virtual_sensor_thermal_zone *tzone = thermal->devdata;
 
 	if (!tzone)
@@ -471,7 +558,8 @@ static int virtual_sensor_thermal_notify(struct thermal_zone_device *thermal,
 
 	switch (type) {
 	case THERMAL_TRIP_CRITICAL:
-		snprintf(data, sizeof(data), "%s", "SHUTDOWN_WARNING");
+		snprintf(data[0], sizeof(data[0]), "TRIP=%d", trip);
+		snprintf(data[1], sizeof(data[1]), "%s", "SHUTDOWN_WARNING");
 		kobject_uevent_env(&thermal->device.kobj, KOBJ_CHANGE, envp);
 		msleep(tzone->tz->shutdown_wait);
 

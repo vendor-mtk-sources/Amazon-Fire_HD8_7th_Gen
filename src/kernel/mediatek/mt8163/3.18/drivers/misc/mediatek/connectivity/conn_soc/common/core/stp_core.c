@@ -2124,9 +2124,11 @@ static INT32 stp_parser_data_in_full_mode(UINT32 length, UINT8 *p_data)
 						STP_INFO_FUNC("++ start to read paged dump and paged trace --\n");
 
 					}
-					STP_INFO_FUNC("[len=%d][type=%d]\n%s\n", stp_core_ctx.rx_counter,
-					       stp_core_ctx.parser.type, stp_core_ctx.rx_buf);
-				}
+					STP_WARN_FUNC("[len=%d][type=%d]\n%s\n",
+						stp_core_ctx.rx_counter,
+						stp_core_ctx.parser.type,
+						stp_core_ctx.rx_buf);
+					}
 
 				/*Runtime FW Log */
 				else if (STP_IS_ENABLE_DBG(stp_core_ctx)

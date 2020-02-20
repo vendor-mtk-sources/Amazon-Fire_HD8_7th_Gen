@@ -1929,6 +1929,15 @@ void mmc_power_cycle(struct mmc_host *host, u32 ocr)
 	mmc_power_up(host, ocr);
 }
 
+void mmc_power_cycle_special(struct mmc_host *host, u32 ocr)
+{
+	mmc_power_off(host);
+	/* Wait at least 20 ms according to SD spec */
+	mmc_delay(20);
+	mmc_power_up(host, ocr);
+	mmc_delay(20);
+}
+
 /*
  * Cleanup when the last reference to the bus operator is dropped.
  */

@@ -629,6 +629,12 @@ config AMZ_PRIV
        help
          This option enables the kernel to support Amazon Privacy Mode
 
+config ONETIME_METRIC
+       bool "Enable one time uploading of metrics"
+       default n
+       help
+         This option enables the kernel to upload metrics on bootup just once
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

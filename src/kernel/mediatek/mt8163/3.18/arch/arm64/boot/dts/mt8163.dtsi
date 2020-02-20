@@ -867,8 +867,8 @@
 				 <&topckgen CLK_TOP_AUD_INTBUS_SEL>,
 				 <&topckgen CLK_TOP_AUD_1_SEL>,
 				 <&topckgen CLK_TOP_AUD_2_SEL>,
-				 <&apmixedsys CLK_APMIXED_AUD1PLL>,
-				 <&apmixedsys CLK_APMIXED_AUD2PLL>,
+				 <&topckgen CLK_TOP_APLL1>,
+				 <&topckgen CLK_TOP_APLL2>,
 				 <&clk26m>;
 			clock-names = "aud_infra_clk",
 				      "top_mux_audio",
@@ -888,6 +888,7 @@
 			i2s1ws-gpio = <47 0>;
 			power-domains = <&scpsys MT8163_POWER_DOMAIN_AUDIO>;
 		};
+
 
 		mt_soc_ul1_pcm@11220000 {
 			compatible = "mediatek,mt8163-soc-pcm-capture";
@@ -1438,7 +1439,7 @@
 				     <GIC_SPI 236 IRQ_TYPE_LEVEL_LOW>;  /* WDT_EINT */
 		};
 
-		wifi@180f0000 {
+		wifi: wifi@180f0000 {
 			compatible = "mediatek,wifi";
 			reg = <0 0x180f0000 0 0x005c>;
 			interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_LOW>;

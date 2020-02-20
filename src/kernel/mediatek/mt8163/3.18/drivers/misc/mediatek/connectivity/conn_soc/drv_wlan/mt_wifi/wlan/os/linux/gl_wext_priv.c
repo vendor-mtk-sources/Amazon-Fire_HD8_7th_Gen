@@ -1046,6 +1046,7 @@ _priv_set_int(IN struct net_device *prNetDev,
 	UINT_32 u4BufLen = 0;
 	int status = 0;
 	P_PTA_IPC_T prPtaIpc;
+	unsigned char dtim_skip_count = 0;
 
 	ASSERT(prNetDev);
 	ASSERT(prIwReqInfo);
@@ -1369,7 +1370,17 @@ _priv_set_int(IN struct net_device *prNetDev,
 		/* Execute this OID */
 		status = priv_set_ndis(prNetDev, prNdisReq, &u4BufLen);
 		break;
-
+	case PRIV_CMD_DTIM_SKIP_COUNT:
+		dtim_skip_count = (unsigned char)pu4IntBuf[1];
+		if (prGlueInfo->prAdapter &&
+		    dtim_skip_count >= 0 &&
+		    dtim_skip_count <= 6) {
+			prGlueInfo->prAdapter->dtim_skip_count =
+				dtim_skip_count;
+		} else {
+			status = -EINVAL;
+		}
+		break;
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -1555,6 +1566,11 @@ _priv_get_int(IN struct net_device *prNetDev,
 
 		return status;
 	}
+	case PRIV_CMD_DTIM_SKIP_COUNT:
+		if (prGlueInfo->prAdapter)
+			prIwReqData->mode =
+				prGlueInfo->prAdapter->dtim_skip_count;
+		return status;
 
 	default:
 		break;

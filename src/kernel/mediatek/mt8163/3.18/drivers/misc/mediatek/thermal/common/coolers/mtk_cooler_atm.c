@@ -24,6 +24,14 @@
 #else
 #include "mt_cpufreq.h"
 #endif
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+#define METRICS_STR_LEN 128
+#endif
+
+#define PREFIX "thermalthrottle:def"
+
 /*=============================================================
  *Local variable definition
  *=============================================================*/
@@ -642,6 +650,18 @@ static int adp_cpu_get_cur_state(struct thermal_cooling_device *cdev, unsigned l
 static int adp_cpu_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
 	int ttj = 117000;
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	char buf[METRICS_STR_LEN];
+#endif
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	if (cl_dev_adp_cpu_state[(cdev->type[13] - '0')] != state) {
+		snprintf(buf, METRICS_STR_LEN,
+			"%s:cooler_%s_throttling_state=%ld;CT;1:NR",
+			PREFIX, cdev->type, state);
+		log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+	}
+#endif
 
 	cl_dev_adp_cpu_state[(cdev->type[13] - '0')] = state;
 

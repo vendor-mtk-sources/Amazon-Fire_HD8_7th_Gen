@@ -20,6 +20,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/clk.h>
+#include <linux/spinlock.h>
 
 #ifdef CONFIG_AMZ_PRIV
 #include <amz_priv.h>
@@ -117,8 +118,20 @@ void handle_privacy_button_pressed(unsigned long pressed)
 {
 	unsigned int delay;
 	int event_handled = 0;
+	unsigned long flags;
 
-	if (pw_data && priv_workq && !pressed && pw_data->cur_priv) {
+	spin_lock_irqsave(&pw_data->lock, flags);
+	pw_data->power_key_handled = pressed ? 1 : 0;
+	pr_info("%s, power_key_handled %d\n", __func__,
+			pw_data->power_key_handled);
+	spin_unlock_irqrestore(&pw_data->lock, flags);
+	pw_data->privacy_hw_state = !gpio_get_value(pw_data->public_hw_st_gpio);
+
+	/* The hardware changes the state instantaneously.
+	 * So, there is no point exiting the privacy state
+	 * if the hardware has not done so. */
+	if (pw_data && priv_workq && !pressed && pw_data->cur_priv
+			&& !pw_data->privacy_hw_state) {
 		/* exit priv mode right away */
 		pr_debug("%s:%u: exit priv mode now\n", __func__, __LINE__);
 		if (amz_priv_trigger(0)) {

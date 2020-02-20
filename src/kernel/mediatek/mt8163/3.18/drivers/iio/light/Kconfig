@@ -202,4 +202,11 @@ config OPT3001
 	  If built as a dynamically linked module, it will be called
 	  opt3001.
 
+config ALS_PWM_DEBUG
+	tristate "Texas Instruments OPT3001 Light Sensor PWM debug values"
+	depends on OPT3001
+	help
+	  If you say Y here, you get support for the sys nodes
+
+
 endmenu

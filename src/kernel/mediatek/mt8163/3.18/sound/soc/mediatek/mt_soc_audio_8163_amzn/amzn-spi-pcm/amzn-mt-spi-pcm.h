@@ -17,6 +17,7 @@
 #define SAMPLING_RATE           16000
 
 #define SPI_HEADER              1
+#define SPI_HEADER_DISABLE      0
 
 #ifndef CONFIG_SND_I2S_MCLK
 #define SPI_N_CHANNELS          9

@@ -50,7 +50,7 @@
 #include <linux/version.h>
 #include <mt-plat/mt_typedefs.h>
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 #include "mtk_qmu.h"
 #endif
 
@@ -424,12 +424,8 @@ struct musb {
 	u16 int_rx;
 	u16 int_tx;
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	u32 int_queue;
-#ifdef QMU_TASKLET
-	u32 qmu_done_intr;
-	struct tasklet_struct qmu_done;
-#endif
 #endif
 
 	struct usb_phy *xceiv;

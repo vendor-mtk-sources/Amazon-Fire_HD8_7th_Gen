@@ -546,7 +546,10 @@ set_private_cmd(int		skfd,		/* Socket */
 	  return(-1);
 	}
     }	/* if args to set */
-
+  else if (priv[k].get_args & IW_PRIV_SIZE_MASK) /* w/o a type, print the string */
+  {
+	  printf("%s\n", buffer);
+  }
   return(0);
 }
 

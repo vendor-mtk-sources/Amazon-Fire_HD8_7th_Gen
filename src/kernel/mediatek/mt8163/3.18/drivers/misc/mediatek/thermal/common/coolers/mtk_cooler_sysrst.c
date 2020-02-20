@@ -18,6 +18,13 @@
 #include <linux/seq_file.h>
 #include <tscpu_settings.h>
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+#define METRICS_STR_LEN 128
+#endif
+
+#define PREFIX "thermalthrottle:def"
+
 /*=============================================================
  *Local variable definition
  *=============================================================*/
@@ -45,7 +52,18 @@ static int sysrst_cpu_get_cur_state(struct thermal_cooling_device *cdev, unsigne
 
 static int sysrst_cpu_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	char buf[METRICS_STR_LEN];
+#endif
+
 	cl_dev_sysrst_state = state;
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	snprintf(buf, METRICS_STR_LEN,
+		"%s:cooler_%s_throttling_state=%ld;CT;1:NR",
+		PREFIX, cdev->type, state);
+	log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+#endif
 
 	if (cl_dev_sysrst_state == 1) {
 		tscpu_printk("sysrst_cpu_set_cur_state = 1\n");

@@ -53,6 +53,13 @@ if SPI_MASTER
 
 comment "SPI Master Controller Drivers"
 
+config MTK_SPI_AFFINITY
+	boolean "Affinity spi task to a specific core"
+	depends on MTK_MIN_PERF_CORES
+	help
+	  Say "yes" to affinity spi task to a specific core,
+	  this can improve spi task performance once core0 is too busy.
+
 config SPI_ALTERA
 	tristate "Altera SPI Controller"
 	select SPI_BITBANG

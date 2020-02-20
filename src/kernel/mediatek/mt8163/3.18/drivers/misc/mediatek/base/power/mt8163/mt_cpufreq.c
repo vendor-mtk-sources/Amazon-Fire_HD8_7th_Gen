@@ -2868,7 +2868,7 @@ static void _power_calculation(struct mt_cpu_dvfs *p, int oppidx, int ncpu)
 
 	/* TODO: should not use a hardcode value for leakage power */
 #if 1
-	p_leakage = mt_spower_get_leakage(MT_SPOWER_CA7, p->opp_tbl[oppidx].cpufreq_volt / 1000, 65);
+	p_leakage = mt_spower_get_leakage(MT_SPOWER_CA7, p->opp_tbl[oppidx].cpufreq_volt / 1000, 90);
 #else
 	p_leakage = 155; /* mt8163-TBD Define power */
 #endif

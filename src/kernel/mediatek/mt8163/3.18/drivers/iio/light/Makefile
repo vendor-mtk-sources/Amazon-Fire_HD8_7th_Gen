@@ -4,6 +4,8 @@
 # In case the platform does NOT support this type of sensors
 ccflags-$(CONFIG_MTK_SENSOR_SUPPORT) += -I$(srctree)/drivers/misc/mediatek/alsps/inc
 ccflags-$(CONFIG_MTK_SENSOR_SUPPORT) += -I$(srctree)/drivers/misc/mediatek/hwmon/include
+ccflags-$(CONFIG_ROOK) += -I$(srctree)/drivers/misc/mediatek/include
+ccflags-$(CONFIG_ROOK) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt8163/include
 
 # When adding new entries keep the list in alphabetical order
 obj-$(CONFIG_ADJD_S311)		+= adjd_s311.o

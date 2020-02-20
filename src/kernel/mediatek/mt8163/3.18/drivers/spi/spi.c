@@ -1004,7 +1004,8 @@ static int spi_init_queue(struct spi_master *master)
 {
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
-#ifdef CONFIG_SPI_AFFINITY
+#ifdef CONFIG_MTK_SPI_AFFINITY
+	long rc;
 	struct cpumask affinity_mask;
 #endif
 
@@ -1024,12 +1025,12 @@ static int spi_init_queue(struct spi_master *master)
 	}
 	init_kthread_work(&master->pump_messages, spi_pump_messages);
 
-#ifdef CONFIG_SPI_AFFINITY
+#ifdef CONFIG_MTK_SPI_AFFINITY
 	cpumask_clear(&affinity_mask);
 	cpumask_set_cpu(1, &affinity_mask);
-	if (sched_setaffinity(master->kworker_task->pid, &affinity_mask) == -1) {
-		pr_err("%s: could not set CPU affinity.\n", __func__);
-	}
+	rc = sched_setaffinity(master->kworker_task->pid, &affinity_mask);
+	if (rc < 0)
+		pr_err("%s: could not set CPU affinity. (%ld)\n", __func__, rc);
 #endif
 	/*
 	 * Master config will indicate if this controller should run the

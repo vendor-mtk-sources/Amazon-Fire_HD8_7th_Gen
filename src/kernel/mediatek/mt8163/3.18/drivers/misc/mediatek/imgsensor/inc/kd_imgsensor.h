@@ -221,6 +221,7 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define GC0310_SENSOR_ID                        0xa310
 #define GC0313MIPI_YUV_SENSOR_ID                0xD0
 #define GC0312_SENSOR_ID			                 0xb310
+#define GC0312MIPI_SENSOR_ID			0xb310
 /*SP*/
 #define SP0A19_YUV_SENSOR_ID                    0xA6
 #define SP2518_YUV_SENSOR_ID                    0x53
@@ -361,6 +362,7 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define SENSOR_DRVNAME_GC0310_MIPI_YUV          "gc0310mipiyuv"
 #define SENSOR_DRVNAME_GC0310_YUV               "gc0310yuv"
 #define SENSOR_DRVNAME_GC0312_YUV          "gc0312yuv"
+#define SENSOR_DRVNAME_GC0312_RAW		"gc0312mipiraw"
 #define SENSOR_DRVNAME_GC0313MIPI_YUV           "gc0313mipiyuv"
 /*SP*/
 #define SENSOR_DRVNAME_SP0A19_YUV               "sp0a19yuv"

@@ -133,35 +133,34 @@ module_param(musb_skip_charge_detect, int, 0644);
 module_param(musb_removed, int, 0644);
 module_param(musb_host_dynamic_fifo, int, 0644);
 module_param(musb_host_dynamic_fifo_usage_msk, int, 0644);
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
+int mtk_host_qmu_concurrent = 1;
+/*bulk:(PIPE_BULK + 1) interrupt:(PIPE_INTERRUPT+ 1)*/
+int mtk_host_qmu_pipe_msk = (PIPE_ISOCHRONOUS + 1);
+int mtk_host_active_dev_cnt;
+unsigned int low_power_timer_total_trigger_cnt;
+unsigned int low_power_timer_total_wake_cnt;
+int low_power_timer_mode;
+int low_power_timer_mode2_option;
+module_param(mtk_host_qmu_concurrent, int, 0644);
+module_param(mtk_host_qmu_pipe_msk, int, 0644);
+module_param(mtk_host_active_dev_cnt, int, 0644);
+module_param(low_power_timer_total_trigger_cnt, int, 0644);
+module_param(low_power_timer_total_wake_cnt, int, 0644);
+module_param(low_power_timer_mode, int, 0644);
+module_param(low_power_timer_mode2_option, int, 0644);
+
 #include "musb_qmu.h"
+u32 dma_burst_setting, qmu_ioc_setting;
+struct musb_hw_ep *qmu_isoc_ep;
 int mtk_qmu_dbg_level = LOG_WARN;
-u32 dma_burst_setting;
-#ifdef QMU_TASKLET
-int qmu_tasklet = 1;
-void qmu_done_tasklet(unsigned long data)
-{
-	unsigned int qmu_val;
-	unsigned int i;
-	unsigned long flags;
-	struct musb *musb = (struct musb *)data;
-
-	spin_lock_irqsave(&musb->lock, flags);
-
-	qmu_val = musb->qmu_done_intr;
-
-	musb->qmu_done_intr = 0;
-
-	for (i = 1; i <= MAX_QMU_EP; i++) {
-		if (qmu_val & DQMU_M_RX_DONE(i))
-			qmu_done_rx(musb, i);
-		if (qmu_val & DQMU_M_TX_DONE(i))
-			qmu_done_tx(musb, i);
-	}
-	spin_unlock_irqrestore(&musb->lock, flags);
-}
-
-#endif
+int mtk_qmu_max_gpd_num;
+int isoc_ep_start_idx = 6;
+int isoc_ep_gpd_count = 260;
+module_param(mtk_qmu_dbg_level, int, 0644);
+module_param(mtk_qmu_max_gpd_num, int, 0644);
+module_param(isoc_ep_start_idx, int, 0644);
+module_param(isoc_ep_gpd_count, int, 0644);
 #endif
 
 DEFINE_SPINLOCK(usb_io_lock);
@@ -982,8 +981,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb, u8 devctl)
 
 		if (musb_host_dynamic_fifo)
 			musb_host_dynamic_fifo_usage_msk = 0;
-
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 		musb_disable_q_all(musb);
 #endif
 
@@ -1058,7 +1056,7 @@ b_host:
 		    otg_state_string(musb->xceiv->state), MUSB_MODE(musb), devctl);
 		handled = IRQ_HANDLED;
 		musb->is_active = 0;
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 		musb_disable_q_all(musb);
 #endif
 
@@ -1125,7 +1123,7 @@ b_host:
 			}
 		} else {
 			DBG(2, "BUS RESET as %s\n", otg_state_string(musb->xceiv->state));
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 			musb_disable_q_all(musb);
 #endif
 			switch (musb->xceiv->state) {
@@ -1809,7 +1807,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	u32 reg;
 
 	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	QMU_DBG("usb(%x) tx(%x) rx(%x) queue(%x)\n",
 		musb->int_usb, musb->int_tx, musb->int_rx, musb->int_queue);
 #else
@@ -1838,7 +1836,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 		else
 			retval |= musb_g_ep0_irq(musb);
 	}
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	/* process generic queue interrupt */
 	if (musb->int_queue) {
 		musb_q_irq(musb);
@@ -1847,8 +1845,6 @@ irqreturn_t musb_interrupt(struct musb *musb)
 #endif
 
 	/* FIXME, workaround for device_qmu + host_dma */
-#if 1
-/* #ifndef MUSB_QMU_SUPPORT */
 	/* RX on endpoints 1-15 */
 	reg = musb->int_rx >> 1;
 	ep_num = 1;
@@ -1883,7 +1879,6 @@ irqreturn_t musb_interrupt(struct musb *musb)
 		reg >>= 1;
 		ep_num++;
 	}
-#endif
 
 	return retval;
 }
@@ -2128,7 +2123,7 @@ static void musb_free(struct musb *musb)
 	sysfs_remove_group(&musb->controller->kobj, &musb_attr_group);
 #endif
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	musb_gadget_cleanup(musb);
 	musb_disable_q_all(musb);
 	musb_qmu_exit(musb);
@@ -2227,11 +2222,8 @@ static int musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl
 	musb->xceiv->io_priv = ctrlp;
 #endif
 	musb_platform_enable(musb);
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	musb_qmu_init(musb);
-#ifdef QMU_TASKLET
-	tasklet_init(&musb->qmu_done, qmu_done_tasklet, (unsigned long)musb);
-#endif
 #endif
 	/* usb_phy_recover(); */
 	if (status < 0)
@@ -2476,8 +2468,9 @@ static void musb_save_context(struct musb *musb)
 	void __iomem *musb_base = musb->mregs;
 	void __iomem *epio;
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	dma_burst_setting = musb_readl(musb->mregs, 0x204);
+	qmu_ioc_setting = musb_readl((musb->mregs + MUSB_QISAR), 0x30);
 #endif
 
 	musb->context.power = musb_readb(musb_base, MUSB_POWER);
@@ -2519,8 +2512,9 @@ static void musb_restore_context(struct musb *musb)
 	void __iomem *musb_base = musb->mregs;
 	void __iomem *epio;
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	musb_writel(musb->mregs, 0x204, dma_burst_setting);
+	musb_writel((musb->mregs + MUSB_QISAR), 0x30, qmu_ioc_setting);
 #endif
 
 	musb_writeb(musb_base, MUSB_POWER, musb->context.power);
@@ -2779,9 +2773,3 @@ static void __exit musb_cleanup(void)
 	platform_driver_unregister(&musb_driver);
 }
 module_exit(musb_cleanup);
-#ifdef MUSB_QMU_SUPPORT
-module_param(mtk_qmu_dbg_level, int, 0644);
-#ifdef QMU_TASKLET
-module_param(qmu_tasklet, int, 0644);
-#endif
-#endif

@@ -344,7 +344,7 @@
 #define CON_DEB_SHORT	(1<<0)	/* EN: to decrease A device connection denounce waiting timing */
 
 /* QMU Registers */
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 #define MUSB_QMUBASE	(0x800)
 #define MUSB_QISAR	(0xc00)
 #define MUSB_QIMR	(0xc04)

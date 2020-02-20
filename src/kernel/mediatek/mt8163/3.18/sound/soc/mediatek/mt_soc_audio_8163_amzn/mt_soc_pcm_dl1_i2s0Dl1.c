@@ -155,11 +155,11 @@ static long long mtk_pcm_I2S0dl1_get_next_write_timestamp(void)
 	kal_int32 ValMcuIrq1Mon = 0;
 
 	if (pI2S0dl1MemControl == NULL) {
-		return -1;
+		return 0x7FFFFFFFFFFFFFFFLL;
 	} else {
 		Afe_Block = &pI2S0dl1MemControl->rBlock;
 		if (Afe_Block == NULL)
-			return -1;
+			return 0x7FFFFFFFFFFFFFFFLL;
 	}
 
 	spin_lock_irqsave(&pI2S0dl1MemControl->substream_lock, flags);
@@ -269,9 +269,11 @@ static long long mtk_pcm_I2S0dl1_get_next_write_timestamp(void)
 	}
 
 	/* should not happen. */
-	pr_err("%s: MEM path to DL1 isn't enable, get timestamp=-1", __func__);
+	pr_err("%s: MEM path to DL1 isn't enable, return invalid timestamp=0x7FFFFFFFFFFFFFFFLL", __func__);
 	spin_unlock_irqrestore(&pI2S0dl1MemControl->substream_lock, flags);
-	return -1;
+
+	/* Invalid timestamp value from AudioBufferProvider.h*/
+	return 0x7FFFFFFFFFFFFFFFLL;
 }
 
 static int mtk_pcm_I2S0dl1_stop(struct snd_pcm_substream *substream)
@@ -338,6 +340,9 @@ static snd_pcm_uframes_t mtk_pcm_I2S0dl1_pointer(struct snd_pcm_substream *subst
 			Afe_Block->u4DataRemained = 0;
 			Afe_Block->u4DMAReadIdx += Afe_consumed_bytes;
 			Afe_Block->u4DMAReadIdx %= Afe_Block->u4BufferSize;
+			/* if it's WHA case, force trigger ALSA driver to be underflow state */
+			spin_unlock_irqrestore(&pI2S0dl1MemControl->substream_lock, flags);
+			return SNDRV_PCM_POS_XRUN;
 		} else {
 			Afe_Block->u4DataRemained -= Afe_consumed_bytes;
 			Afe_Block->u4DMAReadIdx += Afe_consumed_bytes;

@@ -34,6 +34,9 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+#include <mt-plat/mt_pwm.h>
+#include <mt-plat/mt_boot_common.h>
+
 #ifdef CONFIG_MTK_SENSOR_SUPPORT
 #include <alsps.h>
 #include <cust_alsps.h>
@@ -78,6 +81,11 @@
 
 #define MAX_MEASURED_LUX	300
 
+#define DIM_THRESHOLD		5
+#define FULL_THRESHOLD		15
+
+#define NUM_SAMPLES_FOR_DECISION_DIM	3
+#define NUM_SAMPLES_FOR_DECISION_FULL	3
 /*
  * Time to wait for conversion result to be ready. The device datasheet
  * sect. 6.5 states results are ready after total integration time plus 3ms.
@@ -97,6 +105,18 @@ struct alsps_hw alsps_cust;
 static struct alsps_hw *hw = &alsps_cust;
 static int  opt3001_local_init(void);
 static int  opt3001_local_uninit(void);
+#endif
+
+#ifdef CONFIG_ROOK
+static struct pwm_spec_config pwms_config;
+struct pwm_duty_cycle_struct {
+	unsigned int dim_hduration_value;
+	unsigned int dim_lduration_value;
+	unsigned int full_hduration_value;
+	unsigned int full_lduration_value;
+	unsigned int dim_threshold_value;
+	unsigned int full_threshold_value;
+} pwm_duty_cycle_data;
 #endif
 
 struct opt3001 {
@@ -189,7 +209,7 @@ static s32 calibrated_lux_at_0 = -1;
 /* Max Raw measurement */
 static s32 calibrated_lux_at_300 = -1;
 
-#ifdef CONFIG_rsa123
+#ifdef CONFIG_ROOK
 static const char* evt_board_id = "0130001200130017";
 static const int evt_multiplier_nr = 10;
 static const int evt_multiplier_dr = 23;
@@ -198,8 +218,126 @@ static const int evt_multiplier_dr = 23;
 static int multiplier_nr = 1;
 static int multiplier_dr = 1;
 
+static int num_dim_samples;
+static int num_full_samples;
+
 #ifdef CONFIG_MTK_SENSOR_SUPPORT
 static struct opt3001 *opt3001_obj;
+#endif
+
+#if defined(CONFIG_ROOK) && defined(CONFIG_ALS_PWM_DEBUG)
+static ssize_t dim_threshold_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf) {
+	return sprintf(buf, "%d\n", pwm_duty_cycle_data.dim_threshold_value);
+}
+static ssize_t dim_threshold_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count) {
+	int ret = kstrtouint(buf, 10, &pwm_duty_cycle_data.dim_threshold_value);
+
+	if (ret) {
+		pr_err("%s: %u: could not parse dim threshold value: %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
+	return count;
+}
+static ssize_t full_threshold_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf) {
+	return sprintf(buf, "%d\n", pwm_duty_cycle_data.full_threshold_value);
+}
+static ssize_t full_threshold_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count) {
+	int ret = kstrtouint(buf, 10,
+			&pwm_duty_cycle_data.full_threshold_value);
+
+	if (ret) {
+		pr_err("%s: %u: could not parse full threshold value: %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
+	return count;
+}
+static ssize_t dim_hduration_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf) {
+	return sprintf(buf, "%d\n", pwm_duty_cycle_data.dim_hduration_value);
+}
+static ssize_t dim_hduration_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count) {
+	int ret = kstrtouint(buf, 10, &pwm_duty_cycle_data.dim_hduration_value);
+
+	if (ret) {
+		pr_err("%s: %u: could not parse dim hduration value: %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
+	return count;
+}
+static ssize_t dim_lduration_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf) {
+	return sprintf(buf, "%d\n", pwm_duty_cycle_data.dim_lduration_value);
+}
+static ssize_t dim_lduration_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count) {
+	int ret = kstrtouint(buf, 10, &pwm_duty_cycle_data.dim_lduration_value);
+
+	if (ret) {
+		pr_err("%s: %u: could not parse dim lduration value: %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
+	return count;
+}
+static ssize_t full_hduration_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf) {
+	return sprintf(buf, "%d\n", pwm_duty_cycle_data.full_hduration_value);
+}
+static ssize_t full_hduration_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count) {
+	int ret = kstrtouint(buf, 10,
+			&pwm_duty_cycle_data.full_hduration_value);
+
+	if (ret) {
+		pr_err("%s: %u: could not parse full hduration value: %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
+	return count;
+}
+static ssize_t full_lduration_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf) {
+	return sprintf(buf, "%d\n", pwm_duty_cycle_data.full_lduration_value);
+}
+static ssize_t full_lduration_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count) {
+	int ret = kstrtouint(buf, 10,
+			&pwm_duty_cycle_data.full_lduration_value);
+
+	if (ret) {
+		pr_err("%s: %u: could not parse full lduration value: %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
+	return count;
+}
+
+DEVICE_ATTR_RW(dim_threshold);
+DEVICE_ATTR_RW(full_threshold);
+DEVICE_ATTR_RW(dim_hduration);
+DEVICE_ATTR_RW(dim_lduration);
+DEVICE_ATTR_RW(full_hduration);
+DEVICE_ATTR_RW(full_lduration);
 #endif
 
 static int opt3001_configure(struct opt3001 *opt);
@@ -248,6 +386,14 @@ static IIO_CONST_ATTR_INT_TIME_AVAIL("0.1 0.8");
 
 static struct attribute *opt3001_attributes[] = {
 	&iio_const_attr_integration_time_available.dev_attr.attr,
+#if defined(CONFIG_ROOK) && defined(CONFIG_ALS_PWM_DEBUG)
+	&dev_attr_dim_hduration.attr,
+	&dev_attr_dim_lduration.attr,
+	&dev_attr_full_hduration.attr,
+	&dev_attr_full_lduration.attr,
+	&dev_attr_dim_threshold.attr,
+	&dev_attr_full_threshold.attr,
+#endif
 	NULL
 };
 
@@ -287,17 +433,19 @@ static int als_set_delay(u64 ns)
 	return 0;
 }
 
-#ifdef CONFIG_LEDS_TRIGGER_DIM
-void __attribute__((weak)) led_dim_trigger_bright(void) {
-	return;
-}
 #endif
 static int als_open_report_data(int open)
 {
 	APS_LOG("Inside als_open_report_data\n");
-#ifdef CONFIG_LEDS_TRIGGER_DIM
-	if (!open) {
-		led_dim_trigger_bright();
+#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) {
+		if (!open) {
+			pwms_config.PWM_MODE_FIFO_REGS.HDURATION =
+				pwm_duty_cycle_data.full_hduration_value;
+			pwms_config.PWM_MODE_FIFO_REGS.LDURATION =
+				pwm_duty_cycle_data.full_lduration_value;
+			pwm_set_spec_config(&pwms_config);
+		}
 	}
 #endif
 	return 0;
@@ -333,7 +481,6 @@ static int als_enable_nodata(int en)
 
 	return ret;
 }
-#endif
 
 static int opt3001_get_lux(struct opt3001 *opt, int *val, int *val2)
 {
@@ -460,12 +607,6 @@ err:
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
-#ifdef CONFIG_LEDS_TRIGGER_DIM
-void __attribute__((weak)) led_dim_function(unsigned int alsdata) {
-	return;
-}
-#endif
-
 #ifdef CONFIG_MTK_SENSOR_SUPPORT
 static int als_get_data(int *value, int *status)
 {
@@ -493,8 +634,35 @@ static int als_get_data(int *value, int *status)
 	} else {
 		*value = val1;
 	}
-#ifdef CONFIG_LEDS_TRIGGER_DIM
-	led_dim_function(*value);
+#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) {
+		if (*value < pwm_duty_cycle_data.dim_threshold_value) {
+			num_dim_samples++;
+			num_full_samples = 0;
+			if (num_dim_samples == NUM_SAMPLES_FOR_DECISION_DIM) {
+				num_dim_samples = 0;
+				pwms_config.PWM_MODE_FIFO_REGS.HDURATION =
+					pwm_duty_cycle_data.dim_hduration_value;
+				pwms_config.PWM_MODE_FIFO_REGS.LDURATION =
+					pwm_duty_cycle_data.dim_lduration_value;
+				pwm_set_spec_config(&pwms_config);
+			}
+		} else if (*value >= pwm_duty_cycle_data.full_threshold_value) {
+			num_full_samples++;
+			num_dim_samples = 0;
+			if (num_full_samples == NUM_SAMPLES_FOR_DECISION_FULL) {
+				num_full_samples = 0;
+				pwms_config.PWM_MODE_FIFO_REGS.HDURATION =
+					pwm_duty_cycle_data.full_hduration_value;
+				pwms_config.PWM_MODE_FIFO_REGS.LDURATION =
+					pwm_duty_cycle_data.full_lduration_value;
+				pwm_set_spec_config(&pwms_config);
+			}
+		} else {
+			num_full_samples = 0;
+			num_dim_samples = 0;
+		}
+	}
 #endif
 	*status = SENSOR_STATUS_ACCURACY_MEDIUM;
 	return 0;
@@ -874,7 +1042,7 @@ void idme_set_alscal_calibrated_values(void)
 		return;
 	}
 
-#ifdef CONFIG_rsa123
+#ifdef CONFIG_ROOK
 	if (strncmp(boardid_idme, evt_board_id, strlen(evt_board_id)) == 0) {
 		multiplier_nr = evt_multiplier_nr;
 		multiplier_dr = evt_multiplier_dr;
@@ -1161,6 +1329,37 @@ static int __init opt3001_init(void)
 	hw = get_alsps_dts_func(name, hw);
 	APS_LOG("%s: i2c_number=%d\n", __func__, hw->i2c_num);
 	alsps_driver_add(&opt3001_init_info);
+
+#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) {
+		/* PWM settings for GPIO 88 */
+		pwm_duty_cycle_data.dim_hduration_value = 6330;
+		pwm_duty_cycle_data.dim_lduration_value = 702;
+		pwm_duty_cycle_data.full_hduration_value = 6;
+		pwm_duty_cycle_data.full_lduration_value = 7027;
+		pwm_duty_cycle_data.dim_threshold_value = DIM_THRESHOLD;
+		pwm_duty_cycle_data.full_threshold_value = FULL_THRESHOLD;
+
+		pwms_config.pwm_no = PWM2;
+		pwms_config.mode = PWM_MODE_FIFO;
+		pwms_config.clk_div = CLK_DIV16;
+		pwms_config.clk_src = PWM_CLK_NEW_MODE_BLOCK;
+		pwms_config.pmic_pad = 0;
+		pwms_config.PWM_MODE_FIFO_REGS.IDLE_VALUE = 0;
+		pwms_config.PWM_MODE_FIFO_REGS.GUARD_VALUE = 0;
+		pwms_config.PWM_MODE_FIFO_REGS.STOP_BITPOS_VALUE = 63;
+		pwms_config.PWM_MODE_FIFO_REGS.HDURATION =
+			pwm_duty_cycle_data.full_hduration_value;
+		pwms_config.PWM_MODE_FIFO_REGS.LDURATION =
+			pwm_duty_cycle_data.full_lduration_value;
+		pwms_config.PWM_MODE_FIFO_REGS.GDURATION = 0;
+		pwms_config.PWM_MODE_FIFO_REGS.SEND_DATA0 = 0xaaaaaaaa;
+		pwms_config.PWM_MODE_FIFO_REGS.SEND_DATA1 = 0xaaaaaaaa;
+		pwms_config.PWM_MODE_FIFO_REGS.WAVE_NUM = 0;
+		pwm_set_spec_config(&pwms_config);
+	}
+#endif
+
 #else
 	 if (i2c_add_driver(&opt3001_driver)) {
 		APS_ERR("Add driver error\n");

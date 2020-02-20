@@ -7800,6 +7800,10 @@ wlanoidSetNetworkAddress(IN P_ADAPTER_T prAdapter,
 		prCmdNetworkAddressList->ucAddressCount = 0;
 	}
 
+	prCmdNetworkAddressList->ucDtimSkipCount =
+		prAdapter->dtim_skip_count > 0 && prAdapter->dtim_skip_count <= 6 ?
+		prAdapter->dtim_skip_count : 0;
+
 	rStatus = wlanSendSetQueryCmd(prAdapter,
 				      CMD_ID_SET_IP_ADDRESS,
 				      TRUE,

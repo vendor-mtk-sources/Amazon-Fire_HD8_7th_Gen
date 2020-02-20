@@ -54,8 +54,10 @@
 #include <linux/usb/composite.h>
 
 #include "musb_core.h"
+/*Don't enable gadget CMDQ for MP branch*/
+#undef CONFIG_MTK_MUSB_QMU_SUPPORT
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 #include "musb_qmu.h"
 #endif
 
@@ -456,7 +458,7 @@ static int adbDegInfoHandle(struct usb_ep *ep, struct usb_request *req, char *fu
 static inline void map_dma_buffer(struct musb_request *request,
 				  struct musb *musb, struct musb_ep *musb_ep)
 {
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 	int compatible = true;
 	struct dma_controller *dma = musb->dma_controller;
 #endif
@@ -467,7 +469,7 @@ static inline void map_dma_buffer(struct musb_request *request,
 
 
 	request->map_state = UN_MAPPED;
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 	if (!is_dma_capable() || !musb_ep->dma)
 		return;
 
@@ -576,13 +578,13 @@ static void nuke(struct musb_ep *ep, const int status)
 {
 	/*struct musb           *musb = ep->musb; */
 	struct musb_request *req = NULL;
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 	void __iomem *epio = ep->musb->endpoints[ep->current_epnum].regs;
 #endif
 
 
 	ep->busy = 1;
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	musb_flush_qmu(ep->hw_ep->epnum, (ep->is_in ? TXQ : RXQ));
 #else
 	if (is_dma_capable() && ep->dma) {
@@ -1767,7 +1769,7 @@ static int musb_gadget_enable(struct usb_ep *ep, const struct usb_endpoint_descr
 			DBG(0, "packet size beyond hardware FIFO size\n");
 			goto fail;
 		}
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 		musb->intrtxe |= (1 << epnum);
 		musb_writew(mbase, MUSB_INTRTXE, musb->intrtxe);
 #endif
@@ -1807,7 +1809,7 @@ static int musb_gadget_enable(struct usb_ep *ep, const struct usb_endpoint_descr
 			DBG(0, "packet size beyond hardware FIFO size\n");
 			goto fail;
 		}
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 		musb->intrrxe |= (1 << epnum);
 		musb_writew(mbase, MUSB_INTRRXE, musb->intrrxe);
 #endif
@@ -1849,7 +1851,7 @@ static int musb_gadget_enable(struct usb_ep *ep, const struct usb_endpoint_descr
 
 	fifo_setup(musb, musb_ep);
 
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 	/* NOTE:  all the I/O code _should_ work fine without DMA, in case
 	 * for some reason you run out of channels here.
 	 */
@@ -1867,7 +1869,7 @@ static int musb_gadget_enable(struct usb_ep *ep, const struct usb_endpoint_descr
 	musb_ep->wedged = 0;
 	status = 0;
 
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	mtk_qmu_enable(musb, epnum, !(musb_ep->is_in));
 #endif
 
@@ -1909,14 +1911,14 @@ static int musb_gadget_disable(struct usb_ep *ep)
 
 	/* zero the endpoint sizes */
 	if (musb_ep->is_in) {
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 		musb->intrtxe &= ~(1 << epnum);
 		musb_writew(musb->mregs, MUSB_INTRTXE, musb->intrtxe);
 #endif
 		musb_writew(epio, MUSB_TXMAXP, 0);
 	} else {
 		u16 csr;
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 		musb->intrrxe &= ~(1 << epnum);
 		musb_writew(musb->mregs, MUSB_INTRRXE, musb->intrrxe);
 #endif
@@ -1991,7 +1993,13 @@ struct free_record {
  */
 void musb_ep_restart(struct musb *musb, struct musb_request *req)
 {
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
+	/* limit debug mechanism to avoid printk too much */
+	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 10);
+
+	if (!(__ratelimit(&ratelimit)))
+		return;
+
 	QMU_WARN("<== %s request %p len %u on hw_ep%d\n",
 	    req->tx ? "TX/IN" : "RX/OUT", &req->request, req->request.length, req->epnum);
 #else
@@ -2060,7 +2068,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req, gfp_t g
 
 	/* add request to the list */
 	list_add_tail(&request->list, &musb_ep->req_list);
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	if (request->request.dma != DMA_ADDR_INVALID) {
 		/* TX case */
 		if (request->tx) {
@@ -2072,17 +2080,18 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req, gfp_t g
 				musb_kick_D_CmdQ(musb, request);
 
 			} else if (request->request.length == 0) {	/* for UMS special case */
-				unsigned long timeout = jiffies + HZ;
+				int cnt = 50; /* 50*200us, total 10 ms */
 				int is_timeout = 1;
 
 				QMU_WARN("TX ZLP sent case\n");
 
 				/* wait QMU tx done, should be enough in UMS case due to protocol */
-				while (time_before_eq(jiffies, timeout)) {
+				while (cnt--) {
 					if (musb_is_qmu_stop(request->epnum, request->tx ? 0 : 1)) {
 						is_timeout = 0;
 						break;
 					}
+					udelay(200);
 				}
 
 				if (!is_timeout) {
@@ -2163,10 +2172,10 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *request)
 	/* if the hardware doesn't have the request, easy ... */
 	if (musb_ep->req_list.next != &req->list || musb_ep->busy)
 		musb_g_giveback(musb_ep, request, -ECONNRESET);
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	else {
-		QMU_WARN("dequeue req(%p), ep(%d), swep(%d)\n", request, musb_ep->hw_ep->epnum,
-			 ep->address);
+		QMU_DBG("dequeue req(%p), ep(%d), swep(%d)\n",
+			request, musb_ep->hw_ep->epnum, ep->address);
 		musb_flush_qmu(musb_ep->hw_ep->epnum, (musb_ep->is_in ? TXQ : RXQ));
 		musb_g_giveback(musb_ep, request, -ECONNRESET);
 		musb_restart_qmu(musb, musb_ep->hw_ep->epnum, (musb_ep->is_in ? TXQ : RXQ));
@@ -2331,13 +2340,13 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 	spin_lock_irqsave(&musb->lock, flags);
 	musb_ep_select(mbase, (u8) epnum);
 
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 	/* disable interrupts */
 	musb_writew(mbase, MUSB_INTRTXE, musb->intrtxe & ~(1 << epnum));
 #endif
 
 	if (musb_ep->is_in) {
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 		QMU_WARN("fifo flush(%d), sw(%d)\n", epnum, ep->address);
 		musb_flush_qmu(epnum, TXQ);
 		musb_restart_qmu(musb, epnum, TXQ);
@@ -2356,7 +2365,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 			musb_writew(epio, MUSB_TXCSR, csr);
 		}
 	} else {
-#ifdef MUSB_QMU_SUPPORT
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 		QMU_WARN("fifo flush(%d), sw(%d)\n", epnum, ep->address);
 		musb_flush_qmu(epnum, RXQ);
 		musb_restart_qmu(musb, epnum, RXQ);
@@ -2367,7 +2376,7 @@ static void musb_gadget_fifo_flush(struct usb_ep *ep)
 		musb_writew(epio, MUSB_RXCSR, csr);
 	}
 
-#ifndef MUSB_QMU_SUPPORT
+#ifndef CONFIG_MTK_MUSB_QMU_SUPPORT
 	/* re-enable interrupt */
 	musb_writew(mbase, MUSB_INTRTXE, musb->intrtxe);
 #endif

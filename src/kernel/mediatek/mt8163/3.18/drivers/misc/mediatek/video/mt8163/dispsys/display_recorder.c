@@ -44,6 +44,12 @@
 #include <trace/events/amz_atrace.h>
 /* ACOS_MOD_END */
 
+#ifdef CONFIG_TRACING
+
+/* #define ENABLE_DPREC_TRACING */
+
+#endif /* CONFIG_TRACING */
+
 unsigned int gCapturePriLayerEnable = 0;
 unsigned int gCaptureWdmaLayerEnable = 0;
 unsigned int gCapturePriLayerDownX = 20;
@@ -191,12 +197,15 @@ unsigned int dprec_error_log_id = 0;
 
 char dprec_error_log_buffer[DPREC_ERROR_LOG_BUFFER_LENGTH];
 static dprec_logger_event dprec_vsync_irq_event;
+
+#ifdef ENABLE_DPREC_TRACING
 static met_log_map dprec_met_info[DISP_SESSION_MEMORY + 2] = {
 	{"UNKWON", 0, 0},
 	{"OVL0-DSI", 0, 0},
 	{"OVL1-MHL", 0, 0},
 	{"OVL1-SMS", 0, 0},
 };
+#endif /* ENABLE_DPREC_TRACING */
 
 int dprec_init(void)
 {
@@ -471,7 +480,7 @@ void dprec_logger_event_init(dprec_logger_event *p, char *name, uint32_t level,
 	}
 }
 
-#ifdef CONFIG_TRACING
+#ifdef ENABLE_DPREC_TRACING
 
 static unsigned long __read_mostly tracing_mark_write_addr;
 static inline void  __mt_update_tracing_mark_write_addr(void)
@@ -541,7 +550,7 @@ void dprec_logger_frame_seq_end(unsigned int session_id, unsigned frm_sequence)
 		dprec_met_info[device_type].end_frm_seq = frm_sequence;
 	}
 }
-#else
+#else /* ENABLE_DPREC_TRACING */
 void dprec_logger_frame_seq_begin(unsigned int session_id, unsigned frm_sequence)
 {
 }
@@ -550,7 +559,7 @@ void dprec_logger_frame_seq_end(unsigned int session_id, unsigned frm_sequence)
 {
 
 }
-#endif
+#endif /* ENABLE_DPREC_TRACING */
 
 void dprec_start(dprec_logger_event *event, unsigned int val1, unsigned int val2)
 {
@@ -582,7 +591,7 @@ void dprec_start(dprec_logger_event *event, unsigned int val1, unsigned int val2
 		if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
 			pr_debug("DISP/%s start,0x%08x,0x%08x\n", event->name, val1, val2);
 
-#ifdef CONFIG_TRACING
+#ifdef ENABLE_DPREC_TRACING
 		if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
 			char name[256];
 
@@ -592,7 +601,7 @@ void dprec_start(dprec_logger_event *event, unsigned int val1, unsigned int val2
 			mmp_kernel_trace_begin(name);
 			/* trace_printk("B|%d|%s\n", current->pid, event->name); */
 		}
-#endif
+#endif /* ENABLE_DPREC_TRACING */
 	}
 }
 
@@ -634,12 +643,12 @@ void dprec_done(dprec_logger_event *event, unsigned int val1, unsigned int val2)
 		if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
 			pr_debug("DISP/%s done,0x%08x,0x%08x\n", event->name, val1, val2);
 
-#ifdef CONFIG_TRACING
+#ifdef ENABLE_DPREC_TRACING
 		if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
 			mmp_kernel_trace_end();
 			/* trace_printk("E|%s\n", event->name); */
 		}
-#endif
+#endif /* ENABLE_DPREC_TRACING */
 	}
 }
 
@@ -686,7 +695,7 @@ void dprec_trigger(dprec_logger_event *event, unsigned int val1, unsigned int va
 		if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
 			pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name, val1, val2);
 
-#ifdef CONFIG_TRACING
+#ifdef ENABLE_DPREC_TRACING
 		if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
 			char name[256];
 
@@ -696,7 +705,7 @@ void dprec_trigger(dprec_logger_event *event, unsigned int val1, unsigned int va
 			mmp_kernel_trace_end();
 			/* trace_printk("B|%d|%s\n", current->pid, event->name); */
 		}
-#endif
+#endif /* ENABLE_DPREC_TRACING */
 	}
 }
 

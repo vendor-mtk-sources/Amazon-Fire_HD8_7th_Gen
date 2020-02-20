@@ -296,9 +296,10 @@ static struct page *mtk_pcm_hp_impedance_page(struct snd_pcm_substream *substrea
 	return virt_to_page(dummy_page[substream->stream]);	/* the same page */
 }
 
-
+#ifndef CONFIG_MT_SND_SOC_8163_AMZN
 static unsigned short mhp_impedance;
 static unsigned short mAuxAdc_Offset;
+
 static int Audio_HP_ImpeDance_Set(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
@@ -417,7 +418,9 @@ static int Audio_HP_ImpeDance_Set(struct snd_kcontrol *kcontrol,
 #endif
 	return 0;
 }
+#endif
 
+#ifndef CONFIG_MT_SND_SOC_8163_AMZN
 static int phase1table[] = { 7, 13 };
 
 static unsigned short Phase1Check(unsigned short adcvalue, unsigned int adcoffset)
@@ -605,7 +608,7 @@ static const struct snd_kcontrol_new Audio_snd_hp_impedance_controls[] = {
 	SOC_SINGLE_EXT("Audio HP ImpeDance Setting", SND_SOC_NOPM, 0, 65536, 0,
 		       Audio_HP_ImpeDance_Get, Audio_HP_ImpeDance_Set),
 };
-
+#endif
 
 static struct snd_pcm_ops mtk_hp_impedance_ops = {
 
@@ -657,9 +660,11 @@ static int mtk_asoc_pcm_hp_impedance_new(struct snd_soc_pcm_runtime *rtd)
 static int mtk_asoc_dhp_impedance_probe(struct snd_soc_platform *platform)
 {
 	PRINTK_AUDDRV("mtk_asoc_dhp_impedance_probe\n");
+#ifndef CONFIG_MT_SND_SOC_8163_AMZN
 	/* add  controls */
 	snd_soc_add_platform_controls(platform, Audio_snd_hp_impedance_controls,
 				      ARRAY_SIZE(Audio_snd_hp_impedance_controls));
+#endif
 	/* allocate dram */
 	AudDrv_Allocate_mem_Buffer(platform->dev, Soc_Aud_Digital_Block_MEM_DL1,
 				   Dl1_MAX_BUFFER_SIZE);

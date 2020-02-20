@@ -7,11 +7,11 @@ config MTK_THERMAL_PA_VIA_ATCMD
 config THERMAL_BISCUIT
 	bool "THERMAL_BISCUIT"
 
-config THERMAL_rsa123
-	bool "Thermal support for rsa123"
+config THERMAL_ROOK
+	bool "Thermal support for ROOK"
 	default n
 	help
-	  For rsa123 specific thermal configurations.
+	  For ROOK specific thermal configurations.
 
 config THERMAL_SONAR
 	bool "Thermal support for SONAR"

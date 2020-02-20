@@ -497,8 +497,7 @@ static unsigned int charging_set_platform_reset(void *data)
 #if defined(CONFIG_POWER_EXT) || defined(CONFIG_MTK_FPGA)
 #else
 	pr_notice("charging_set_platform_reset\n");
-	kernel_restart("battery service reboot system");
-	/* arch_reset(0,NULL); */
+	orderly_reboot(true);
 #endif
 	return status;
 }
@@ -520,7 +519,7 @@ static unsigned int charging_set_power_off(void *data)
 #if defined(CONFIG_POWER_EXT) || defined(CONFIG_MTK_FPGA)
 #else
 	pr_notice("charging_set_power_off\n");
-	kernel_power_off();
+	orderly_poweroff(true);
 #endif
 	return status;
 }

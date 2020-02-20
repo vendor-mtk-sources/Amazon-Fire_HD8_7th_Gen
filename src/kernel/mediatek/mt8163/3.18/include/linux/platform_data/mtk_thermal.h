@@ -24,7 +24,7 @@ struct mtk_cooler_platform_data {
 	int levels[THERMAL_MAX_TRIPS];
 };
 
-#ifdef CONFIG_rsa123
+#ifdef CONFIG_ROOK
 struct cdev_t {
 	char type[THERMAL_NAME_LENGTH];
 	unsigned long upper;
@@ -36,7 +36,7 @@ struct trip_t {
 	unsigned long temp;
 	enum thermal_trip_type type;
 	unsigned long hyst;
-#ifdef CONFIG_rsa123
+#ifdef CONFIG_ROOK
 	struct cdev_t cdev[THERMAL_MAX_TRIPS];
 #endif
 };
@@ -46,6 +46,9 @@ struct mtk_thermal_platform_data {
 	enum thermal_device_mode mode;
 	int polling_delay;
 	int shutdown_wait;
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	int metrics_count;
+#endif
 	/*
 	 * Add a list for sensor params. Note: therm_lock takes
 	 * care of list protection.
@@ -67,5 +70,7 @@ struct alt_cpu_thermal_zone {
 	struct work_struct therm_work;
 	struct mtk_thermal_platform_data *pdata;
 };
+
+void last_kmsg_thermal_shutdown(void);
 
 #endif /* _MTK_THERMAL_H_ */

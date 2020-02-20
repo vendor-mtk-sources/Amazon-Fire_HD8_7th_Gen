@@ -38,6 +38,9 @@ struct priv_work_data {
 	int public_hw_st_gpio;
 	struct kobject *kobj;
 	struct priv_cb_data *cb_arr[PRIV_CB_MAX];
+	int power_key_handled;
+	int privacy_hw_state;
+	spinlock_t lock;
 };
 
 void start_privacy_timer_func(struct work_struct *work);

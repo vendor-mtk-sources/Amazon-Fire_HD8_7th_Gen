@@ -13,8 +13,12 @@
 #include "ddp_pwm.h"
 #include "ddp_path.h"
 
-
+#ifdef CONFIG_ROOK
+#define PWM_DEFAULT_DIV_VALUE 0x2
+#else
 #define PWM_DEFAULT_DIV_VALUE 0x0
+#endif
+
 
 #define PWM_ERR(fmt, arg...) pr_debug("[PWM] " fmt "\n", ##arg)
 #define PWM_NOTICE(fmt, arg...) pr_debug("[PWM] " fmt "\n", ##arg)

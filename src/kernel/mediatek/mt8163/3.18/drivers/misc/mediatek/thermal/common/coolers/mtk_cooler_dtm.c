@@ -24,6 +24,13 @@
 #include "mt_cpufreq.h"
 #endif
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+#include <linux/metricslog.h>
+#define METRICS_STR_LEN 128
+#endif
+
+#define PREFIX "thermalthrottle:def"
+
 /*=============================================================
  *Local variable definition
  *=============================================================*/
@@ -186,12 +193,24 @@ static int dtm_cpu_get_cur_state(struct thermal_cooling_device *cdev, unsigned l
 static int dtm_cpu_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
 	int i = 0;
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	char buf[METRICS_STR_LEN];
+#endif
+
 	/* tscpu_dprintk("dtm_cpu_set_cur_state %s\n", cdev->type); */
 
 	for (i = 0; i < Num_of_OPP; i++) {
 		if (!strcmp(cdev->type, &cooler_name[i * 20])) {
 			cl_dev_state[i] = state;
 			tscpu_set_power_consumption_state();
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+			snprintf(buf, METRICS_STR_LEN,
+				"%s:cooler_%s_throttling_state=%ld;CT;1:NR",
+				PREFIX, cdev->type, state);
+			log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+#endif
 			break;
 		}
 	}

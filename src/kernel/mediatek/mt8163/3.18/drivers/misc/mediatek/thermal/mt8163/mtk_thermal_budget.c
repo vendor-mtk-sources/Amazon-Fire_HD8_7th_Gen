@@ -25,12 +25,14 @@
 
 #ifdef CONFIG_AMAZON_METRICS_LOG
 #include <linux/metricslog.h>
+#define METRICS_STR_LEN 128
 
 #ifndef THERMO_METRICS_STR_LEN
 #define THERMO_METRICS_STR_LEN 128
 #endif
 #endif
 
+#define PREFIX "thermalthrottle:def"
 #define MAXIMUM_CPU_POWER 4600
 
 struct thermal_dev_t {
@@ -173,6 +175,10 @@ static int thermal_budget_set_cur_state(struct thermal_cooling_device *cdev,
 	int level;
 	struct mtk_cooler_platform_data *pdata = cdev->devdata;
 
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	char buf[METRICS_STR_LEN];
+#endif
+
 #if 0
 #ifdef CONFIG_AMAZON_METRICS_LOG
 	char mBuf[THERMO_METRICS_STR_LEN];
@@ -194,6 +200,13 @@ static int thermal_budget_set_cur_state(struct thermal_cooling_device *cdev,
 
 	_thermal_budget_cooler = level;
 	_thermal_budget_notify(_thermal_budget_cpu, level);
+
+#ifdef CONFIG_AMAZON_METRICS_LOG
+	snprintf(buf, METRICS_STR_LEN,
+		"%s:cooler_%s_throttling_state=%ld;CT;1,level=%d;CT;1:NR",
+		PREFIX, cdev->type, pdata->state, level);
+	log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+#endif
 
 #if 0
 #ifdef CONFIG_AMAZON_METRICS_LOG

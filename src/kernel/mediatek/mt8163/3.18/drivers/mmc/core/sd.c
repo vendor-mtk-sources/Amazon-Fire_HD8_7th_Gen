@@ -726,6 +726,7 @@ try_again:
 	if (!retries) {
 		ocr &= ~SD_OCR_S18R;
 		pr_warn("%s: Skipping voltage switch\n", mmc_hostname(host));
+		return err;
 	}
 
 	/*
@@ -1155,6 +1156,8 @@ static int mmc_sd_suspend(struct mmc_host *host)
  * This function tries to determine if the same card is still present
  * and, if so, restore all state to it.
  */
+extern void mmc_power_cycle_special(struct mmc_host *host);
+
 static int _mmc_sd_resume(struct mmc_host *host)
 {
 	int err = 0;
@@ -1181,6 +1184,7 @@ static int _mmc_sd_resume(struct mmc_host *host)
 			       mmc_hostname(host), err, retries);
 			mdelay(5);
 			retries--;
+			mmc_power_cycle_special(host);
 			continue;
 		}
 		break;

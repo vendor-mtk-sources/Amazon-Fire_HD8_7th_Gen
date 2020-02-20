@@ -1382,6 +1382,8 @@ struct _ADAPTER_T {
 #endif
 
 	UINT_32 u4AirDelayTotal;	/*  dbg privilege power mode, always keep in active */
+	unsigned char dtim_skip_count;
+
 
 };				/* end of _ADAPTER_T */
 

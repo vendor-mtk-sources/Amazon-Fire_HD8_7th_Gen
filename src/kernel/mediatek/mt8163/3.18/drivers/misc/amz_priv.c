@@ -23,6 +23,7 @@
 #include <linux/gpio.h>
 #include <mediatek/include/mt-plat/mt_boot_common.h>
 #include <amz_priv.h>
+#include <linux/spinlock.h>
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -63,35 +64,12 @@ static void priv_trig_all_cbs(int on)
  */
 void block_hw_priv(void)
 {
-	struct device_node *node = NULL;
-	node = of_find_node_by_name(NULL, AMZ_PRIVACY_OF_NODE);
-
-	if (NULL == node) {
-		pr_err("%s: could not find privacy device tree node\n",
-			__func__);
-	} else {
-		pw_data->public_hw_st_gpio = of_get_named_gpio(node,
-						"public_hw_st-gpio", 0);
-		if (pw_data->public_hw_st_gpio <= 0) {
-			pr_err("%s: gpio err\n", __func__);
-			return;
-		}
-	}
-
-	int ret = gpio_request(pw_data->public_hw_st_gpio, "public_hw_st-gpio");
-	if (ret) {
-		pr_err("%s:%u gpio req failed ret=%d\n",
-				__func__, __LINE__, ret);
-		pw_data->public_hw_st_gpio = -EINVAL;
-	}
 
 	/* Read PUBLIC_HW GPIO until it goes PRIVATE */
 	while (gpio_get_value(pw_data->public_hw_st_gpio)) {
 		pr_debug("%s: waiting...\n", __func__);
 		msleep(10);
 	}
-
-	gpio_free(pw_data->public_hw_st_gpio);
 
 	return;
 }
@@ -128,10 +106,8 @@ int amz_priv_trigger(int on)
 	if (PRIV_GPIO_USR_CNTL != pw_data->priv_gpio) {
 		gpio_set_value(pw_data->priv_gpio, on);
 	}
-
 	priv_trig_all_cbs(on);
 	pr_debug("%s:%u [%d]\n", __func__, __LINE__, on);
-
 	if (on)
 		assert_priv();
 	/*
@@ -140,7 +116,6 @@ int amz_priv_trigger(int on)
 	 */
 	pw_data->cur_priv = on;
 	sysfs_notify(pw_data->kobj, NULL, "privacy_state");
-
 	pr_debug("%s:%u done [%d]\n", __func__, __LINE__, on);
 	return 0;
 }
@@ -374,35 +349,46 @@ EXPORT_SYMBOL(amz_set_mute_pin);
 /* mic mute callback */
 int amz_priv_mute_cb(void *data, int value)
 {
-	struct device_node *node = (struct device_node *)data;
-	int ret;
-
-	pw_data->mute_gpio = of_get_named_gpio(node, "mute-gpio", 0);
-	ret = gpio_request(pw_data->mute_gpio, "amz_mute_pin");
-	if (ret) {
-		pr_err("%s:%u gpio req failed ret=%d\n",
-				__func__, __LINE__, ret);
-		pw_data->mute_gpio = -EINVAL;
-		return ret;
-	}
-
 	pr_info("%s:%u turning mics %s\n", __func__, __LINE__,
 			value ? "off" : "on");
 	gpio_set_value(pw_data->mute_gpio, (~value & 0x1));
-	gpio_free(pw_data->mute_gpio);
 	return 0;
+}
+
+#ifdef CONFIG_KPD_PWRKEY_USE_PMIC
+extern void kpd_pwrkey_pmic_handler(unsigned long pressed);
+#endif
+static irqreturn_t public_hw_state_handler(unsigned irq, struct irq_desc *desc)
+{
+	unsigned long flags;
+	int power_key_flag;
+
+	spin_lock_irqsave(&pw_data->lock, flags);
+	power_key_flag = pw_data->power_key_handled;
+	spin_unlock_irqrestore(&pw_data->lock, flags);
+
+	pr_debug("%s: called, key_handled = %d\n", __func__,
+			pw_data->power_key_handled);
+	if (power_key_flag) {
+		/* no need to handle as key press event has already handled */
+		pr_info("%s, key handled ignoring\n", __func__);
+	} else {
+#ifdef CONFIG_KPD_PWRKEY_USE_PMIC
+		pr_info("%s, inject key pressed\n", __func__);
+		kpd_pwrkey_pmic_handler(1);
+		kpd_pwrkey_pmic_handler(0);
+#endif
+	}
+	spin_lock_irqsave(&pw_data->lock, flags);
+	pw_data->power_key_handled = 0;
+	spin_unlock_irqrestore(&pw_data->lock, flags);
+	return IRQ_HANDLED;
 }
 
 #ifdef CONFIG_OF
 int amz_priv_kickoff(struct device *dev)
 {
 	priv_dis = false;
-#if defined(CONFIG_rsa123) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
-	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
-		priv_dis = true;
-		return 0;
-	}
-#endif
 	int ret;
 	struct device_node *node = NULL;
 	static struct priv_cb_data pcd;
@@ -419,7 +405,7 @@ int amz_priv_kickoff(struct device *dev)
 		pw_data->priv_gpio = PRIV_GPIO_USR_CNTL;
 	} else {
 		pw_data->priv_gpio = of_get_gpio(node, 0);
-		if (pw_data->priv_gpio <= 0) {
+		if (pw_data->priv_gpio < 0) {
 			pr_err("%s: could not find privacy gpio: %d\n",
 			       __func__,
 			       pw_data->priv_gpio);
@@ -427,6 +413,7 @@ int amz_priv_kickoff(struct device *dev)
 		}
 	}
 	pw_data->kobj = &dev->kobj;
+	spin_lock_init(&pw_data->lock);
 
 	ret = gpio_request(pw_data->priv_gpio, "amz_priv_trig");
 	if (ret)
@@ -457,6 +444,55 @@ int amz_priv_kickoff(struct device *dev)
 		pr_info("amz_priv_cb_reg for mute failed!");
 	}
 
+
+	pw_data->mute_gpio = of_get_named_gpio(node, "mute-gpio", 0);
+	ret = gpio_request(pw_data->mute_gpio, "amz_mute_pin");
+	if (ret) {
+		pr_err("%s:%u gpio req failed ret=%d\n",
+				__func__, __LINE__, ret);
+		pw_data->mute_gpio = -EINVAL;
+		return ret;
+	}
+
+	/* reads the public hw state gpio and re-triggers privacy accordingly */
+	if (hw_latch_set) {
+		pw_data->public_hw_st_gpio = of_get_named_gpio(node,
+						"public_hw_st-gpio", 0);
+
+		if (pw_data->public_hw_st_gpio < 0) {
+			pr_err("%s: gpio err\n", __func__);
+			return -EINVAL;
+		}
+
+		ret = gpio_request(pw_data->public_hw_st_gpio, "public_hw_st-gpio");
+		if (ret) {
+			pr_err("%s:%u gpio req failed ret=%d\n",
+				__func__, __LINE__, ret);
+			return ret;
+		}
+
+		if (!gpio_get_value(pw_data->public_hw_st_gpio))
+			amz_priv_trigger(1);
+
+		ret = request_threaded_irq(gpio_to_irq(pw_data->public_hw_st_gpio),
+				     NULL,
+				     (irq_handler_t) public_hw_state_handler,
+				     IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				     "privacy-public-hwstate",
+				     NULL);
+		if (ret < 0)
+			pr_err("%s:%u request threaded irq returned: %d\n", __func__, __LINE__, ret);
+	}
+
+#if defined(CONFIG_ROOK) && defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
+	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
+		amz_priv_trigger(1);
+		priv_dis = true;
+	}
+#endif
+
+	/* The privacy gpio reflects the hw state in active low, so the ! */
+	pw_data->privacy_hw_state = !gpio_get_value(pw_data->public_hw_st_gpio);
 	pr_debug("%s:%u:success!\n", __func__, __LINE__);
 	return 0;
 }

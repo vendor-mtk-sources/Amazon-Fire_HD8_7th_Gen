@@ -66,3 +66,4 @@ obj-$(CONFIG_ALS_ISL29034) += isl29034.o
 obj-$(CONFIG_ALS_TSL2583) += tsl2583.o
 obj-$(CONFIG_SENSORS_TSL2540)	+= ams_tsl2540.o ams_tsl2540_als.o ams_i2c.o
 obj-$(CONFIG_AMZ_PRIV)          += amz_priv.o
+obj-$(CONFIG_ONETIME_METRIC) 	+= metrics.o
