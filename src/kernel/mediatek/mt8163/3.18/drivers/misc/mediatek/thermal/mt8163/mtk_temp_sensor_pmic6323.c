@@ -53,7 +53,7 @@ struct thermal_dev_params mtktspmic_sensor_tdp = {
 	.offset = 0,
 	.alpha = 0,
 	.weight = 0
-#elif defined(CONFIG_THERMAL_abc123)
+#elif defined(CONFIG_THERMAL_sbc123)
 	.offset = 0,
 	.alpha = 0,
 	.weight = 0

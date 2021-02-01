@@ -923,7 +923,7 @@ LCM_DRIVER *lcm_driver_list[] = {
 	&nt35521_wxga_dsi_vdo_douglas_lcm_drv,
 #endif
 
-#if defined(HX8379C_DSI_WVGA_VDO_rbc123)
+#if defined(HX8379C_DSI_WVGA_VDO_abe123)
 	&hx8379c_wvga_dsi_vdo_lcm_drv,
 #endif
 };

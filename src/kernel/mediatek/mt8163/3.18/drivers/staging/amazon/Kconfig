@@ -60,15 +60,15 @@ config abh123
 	help
 	isolate amazon abh123 changes for MTK Platform
 
-config rbc123
-	bool "rbc123 MTK platform project"
+config abe123
+	bool "abe123 MTK platform project"
 	help
-	isolate amazon rbc123 changes for MTK Platform
+	isolate amazon abe123 changes for MTK Platform
 
-config abc123
-	bool "abc123 MTK platform project"
+config sbc123
+	bool "sbc123 MTK platform project"
 	help
-	isolate Amazon abc123 changes for MTK Platform
+	isolate Amazon sbc123 changes for MTK Platform
 
 config AMAZON_LL_LOG
         bool "Low Level Log Support"

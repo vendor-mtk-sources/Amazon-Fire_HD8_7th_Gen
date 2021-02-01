@@ -114,13 +114,13 @@
  /*set the coefficients the TSL2584TSV equation will use*/
 #define TSL2584TSV_CH0_COFF	CH0_COFF_NO_GLASS
 #define TSL2584TSV_CH1_COFF	CH1_COFF_NO_GLASS
-#ifdef CONFIG_abc123
+#ifdef CONFIG_sbc123
 #define MILILUX_COFF 235
 #define CH1_COFF 295
 #else /* All other products */
 #define MILILUX_COFF 1000
 #define CH1_COFF 1190
-#endif /* CONFIG_abc123 */
+#endif /* CONFIG_sbc123 */
 #define NOISE_THRESHOLD 6
 /*end TSL2584TSV lux equation defines*/
 
