@@ -1003,6 +1003,8 @@
 ********************************************************************************
 */
 
+BOOLEAN g_fgDisconnectByOid = FALSE;
+
 /*******************************************************************************
 *                           P R I V A T E   D A T A
 ********************************************************************************
@@ -1067,7 +1069,7 @@ VOID aisInitializeConnectionSettings(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T p
 	COPY_MAC_ADDR(prConnSettings->aucMacAddress, aucZeroMacAddr);
 
 	if (kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abh123", 7) == 0 ||
-		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "cookie", 6) == 0 ||
+		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abc123", 6) == 0 ||
 		kalStrnCmp(CONFIG_ARCH_MTK_PROJECT, "abd123", 5) == 0)
 		ucDelayDisconnectTime =
 			AIS_DELAY_TIME_OF_LONG_DISC_SEC_DUALBAND;
@@ -3820,10 +3822,12 @@ BOOLEAN aisValidateProbeReq(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb, OUT
 VOID aisFsmDisconnect(IN P_ADAPTER_T prAdapter, IN BOOLEAN fgDelayIndication)
 {
 	P_BSS_INFO_T prAisBssInfo;
+	P_GLUE_INFO_T prGlueInfo;
 
 	ASSERT(prAdapter);
 
 	DBGLOG(INIT, INFO, "aisFsmDisconnect\n");
+	prGlueInfo = prAdapter->prGlueInfo;
 	prAisBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
 
 	nicPmIndicateBssAbort(prAdapter, NETWORK_TYPE_AIS_INDEX);
@@ -3906,6 +3910,12 @@ VOID aisFsmDisconnect(IN P_ADAPTER_T prAdapter, IN BOOLEAN fgDelayIndication)
 
 	/* 4 <6> Indicate Disconnected Event to Host */
 	aisIndicationOfMediaStateToHost(prAdapter, PARAM_MEDIA_STATE_DISCONNECTED, fgDelayIndication);
+
+	if (g_fgDisconnectByOid) {
+		g_fgDisconnectByOid = FALSE;
+		DBGLOG(INIT, INFO, "Disconnect by Oid\n");
+		kalOidComplete(prGlueInfo, FALSE, 0, WLAN_STATUS_SUCCESS);
+	}
 
 	/* 4 <7> Trigger AIS FSM */
 	aisFsmSteps(prAdapter, AIS_STATE_IDLE);
